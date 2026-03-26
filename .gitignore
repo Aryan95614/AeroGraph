@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+.venv/
+venv/
+*.faiss
+*.npy
+*.pkl
+.modal/
+.DS_Store

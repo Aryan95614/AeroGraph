@@ -11,3 +11,12 @@ venv/
 *.pkl
 .modal/
 .DS_Store
+*.egg
+.eggs/
+data/raw/*.json*
+data/raw/*.csv
+data/processed/*.jsonl
+data/graphs/*.pkl
+chroma_db/
+.chroma/
+*.sqlite3

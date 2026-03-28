@@ -1,1 +1,527 @@
-"""Knowledge graph construction and query module."""
+"""Knowledge graph construction and query module.
+
+Supports Neo4j (preferred) with automatic fallback to NetworkX.
+Graph is built from entity extraction results with MERGE semantics.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import pickle
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+
+import networkx as nx
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DATA_DIR = Path(__file__).parent.parent.parent / "data"
+PROCESSED_DIR = DATA_DIR / "processed"
+GRAPHS_DIR = DATA_DIR / "graphs"
+
+
+@dataclass
+class GraphNode:
+    name: str
+    type: str
+    canonical_name: str
+    report_ids: list[str] = field(default_factory=list)
+    embedding_id: Optional[str] = None
+    properties: dict = field(default_factory=dict)
+
+
+@dataclass
+class GraphEdge:
+    source: str
+    target: str
+    type: str
+    weight: int = 1
+    report_ids: list[str] = field(default_factory=list)
+
+
+@dataclass
+class SubgraphResult:
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]
+
+
+class GraphBackend(ABC):
+    """Abstract graph backend interface."""
+
+    @abstractmethod
+    def add_node(self, node: GraphNode) -> None: ...
+
+    @abstractmethod
+    def add_edge(self, edge: GraphEdge) -> None: ...
+
+    @abstractmethod
+    def get_node(self, canonical_name: str) -> Optional[GraphNode]: ...
+
+    @abstractmethod
+    def get_neighbors(
+        self, entity: str, edge_types: Optional[list[str]] = None, depth: int = 2
+    ) -> SubgraphResult: ...
+
+    @abstractmethod
+    def get_causal_chain(
+        self, start_entity: str, end_entity: str
+    ) -> list[list[str]]: ...
+
+    @abstractmethod
+    def get_high_centrality_nodes(self, top_n: int = 20) -> list[tuple[str, float]]: ...
+
+    @abstractmethod
+    def get_subgraph(self, report_id: str) -> SubgraphResult: ...
+
+    @abstractmethod
+    def node_count(self) -> int: ...
+
+    @abstractmethod
+    def edge_count(self) -> int: ...
+
+    @abstractmethod
+    def save(self) -> None: ...
+
+
+class NetworkXBackend(GraphBackend):
+    """NetworkX-based graph backend (zero-dependency fallback)."""
+
+    def __init__(self, path: Optional[Path] = None):
+        self.path = path or GRAPHS_DIR / "aerograph.pkl"
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if self.path.exists():
+            with open(self.path, "rb") as f:
+                self.graph: nx.DiGraph = pickle.load(f)
+        else:
+            self.graph = nx.DiGraph()
+
+    def add_node(self, node: GraphNode) -> None:
+        key = node.canonical_name
+        if self.graph.has_node(key):
+            existing = self.graph.nodes[key]
+            existing_ids = set(existing.get("report_ids", []))
+            existing_ids.update(node.report_ids)
+            existing["report_ids"] = list(existing_ids)
+            if node.embedding_id:
+                existing["embedding_id"] = node.embedding_id
+        else:
+            self.graph.add_node(key, **{
+                "name": node.name,
+                "type": node.type,
+                "canonical_name": node.canonical_name,
+                "report_ids": list(node.report_ids),
+                "embedding_id": node.embedding_id,
+                **node.properties,
+            })
+
+    def add_edge(self, edge: GraphEdge) -> None:
+        if self.graph.has_edge(edge.source, edge.target):
+            existing = self.graph.edges[edge.source, edge.target]
+            if existing.get("type") == edge.type:
+                existing["weight"] = existing.get("weight", 1) + 1
+                existing_ids = set(existing.get("report_ids", []))
+                existing_ids.update(edge.report_ids)
+                existing["report_ids"] = list(existing_ids)
+                return
+        self.graph.add_edge(edge.source, edge.target, **{
+            "type": edge.type,
+            "weight": edge.weight,
+            "report_ids": list(edge.report_ids),
+        })
+
+    def get_node(self, canonical_name: str) -> Optional[GraphNode]:
+        key = canonical_name.lower().strip()
+        if not self.graph.has_node(key):
+            return None
+        data = self.graph.nodes[key]
+        return GraphNode(
+            name=data.get("name", key),
+            type=data.get("type", "unknown"),
+            canonical_name=key,
+            report_ids=data.get("report_ids", []),
+            embedding_id=data.get("embedding_id"),
+        )
+
+    def get_neighbors(
+        self, entity: str, edge_types: Optional[list[str]] = None, depth: int = 2
+    ) -> SubgraphResult:
+        key = entity.lower().strip()
+        if not self.graph.has_node(key):
+            return SubgraphResult(nodes=[], edges=[])
+
+        # BFS to collect neighbors up to depth
+        visited = {key}
+        frontier = {key}
+        all_nodes = set()
+        all_edges = []
+
+        for _ in range(depth):
+            next_frontier = set()
+            for node in frontier:
+                for neighbor in list(self.graph.successors(node)) + list(self.graph.predecessors(node)):
+                    edge_data = self.graph.edges.get((node, neighbor)) or self.graph.edges.get((neighbor, node))
+                    if edge_data and (edge_types is None or edge_data.get("type") in edge_types):
+                        if neighbor not in visited:
+                            next_frontier.add(neighbor)
+                            visited.add(neighbor)
+                        all_nodes.add(neighbor)
+                        all_edges.append(GraphEdge(
+                            source=node if self.graph.has_edge(node, neighbor) else neighbor,
+                            target=neighbor if self.graph.has_edge(node, neighbor) else node,
+                            type=edge_data.get("type", ""),
+                            weight=edge_data.get("weight", 1),
+                            report_ids=edge_data.get("report_ids", []),
+                        ))
+            frontier = next_frontier
+
+        all_nodes.add(key)
+        nodes = []
+        for n in all_nodes:
+            node = self.get_node(n)
+            if node:
+                nodes.append(node)
+
+        return SubgraphResult(nodes=nodes, edges=all_edges)
+
+    def get_causal_chain(
+        self, start_entity: str, end_entity: str
+    ) -> list[list[str]]:
+        start = start_entity.lower().strip()
+        end = end_entity.lower().strip()
+        if not self.graph.has_node(start) or not self.graph.has_node(end):
+            return []
+
+        causal_types = {"CAUSED_BY", "CONTRIBUTED_TO", "PRECEDED_BY"}
+        causal_graph = nx.DiGraph()
+        for u, v, data in self.graph.edges(data=True):
+            if data.get("type") in causal_types:
+                causal_graph.add_edge(u, v)
+                causal_graph.add_edge(v, u)  # bidirectional for path finding
+
+        try:
+            paths = list(nx.all_simple_paths(causal_graph, start, end, cutoff=5))
+            return [list(p) for p in paths[:10]]  # cap at 10 paths
+        except (nx.NetworkXError, nx.NodeNotFound):
+            return []
+
+    def get_high_centrality_nodes(self, top_n: int = 20) -> list[tuple[str, float]]:
+        if self.graph.number_of_nodes() == 0:
+            return []
+        try:
+            pr = nx.pagerank(self.graph, max_iter=100)
+            sorted_nodes = sorted(pr.items(), key=lambda x: x[1], reverse=True)
+            return sorted_nodes[:top_n]
+        except nx.PowerIterationFailedConvergence:
+            # Fallback to degree centrality
+            dc = nx.degree_centrality(self.graph)
+            sorted_nodes = sorted(dc.items(), key=lambda x: x[1], reverse=True)
+            return sorted_nodes[:top_n]
+
+    def get_subgraph(self, report_id: str) -> SubgraphResult:
+        nodes = []
+        for n, data in self.graph.nodes(data=True):
+            if report_id in data.get("report_ids", []):
+                nodes.append(GraphNode(
+                    name=data.get("name", n),
+                    type=data.get("type", "unknown"),
+                    canonical_name=n,
+                    report_ids=data.get("report_ids", []),
+                ))
+
+        node_names = {n.canonical_name for n in nodes}
+        edges = []
+        for u, v, data in self.graph.edges(data=True):
+            if u in node_names and v in node_names:
+                edges.append(GraphEdge(
+                    source=u, target=v,
+                    type=data.get("type", ""),
+                    weight=data.get("weight", 1),
+                    report_ids=data.get("report_ids", []),
+                ))
+
+        return SubgraphResult(nodes=nodes, edges=edges)
+
+    def node_count(self) -> int:
+        return self.graph.number_of_nodes()
+
+    def edge_count(self) -> int:
+        return self.graph.number_of_edges()
+
+    def get_type_counts(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for _, data in self.graph.nodes(data=True):
+            t = data.get("type", "unknown")
+            counts[t] = counts.get(t, 0) + 1
+        return counts
+
+    def get_edge_type_counts(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for _, _, data in self.graph.edges(data=True):
+            t = data.get("type", "unknown")
+            counts[t] = counts.get(t, 0) + 1
+        return counts
+
+    def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.path, "wb") as f:
+            pickle.dump(self.graph, f)
+        print(f"Graph saved: {self.node_count()} nodes, {self.edge_count()} edges")
+
+
+class Neo4jBackend(GraphBackend):
+    """Neo4j-based graph backend."""
+
+    def __init__(
+        self,
+        uri: Optional[str] = None,
+        user: Optional[str] = None,
+        password: Optional[str] = None,
+    ):
+        from neo4j import GraphDatabase
+
+        self.uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
+        self.user = user or os.getenv("NEO4J_USER", "neo4j")
+        self.password = password or os.getenv("NEO4J_PASSWORD", "password")
+        self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
+        self.driver.verify_connectivity()
+
+    def add_node(self, node: GraphNode) -> None:
+        with self.driver.session() as session:
+            session.run(
+                """
+                MERGE (n:Entity {canonical_name: $canonical_name})
+                SET n.name = $name, n.type = $type, n.embedding_id = $embedding_id
+                WITH n
+                UNWIND $report_ids AS rid
+                SET n.report_ids = coalesce(n.report_ids, []) + rid
+                """,
+                canonical_name=node.canonical_name,
+                name=node.name,
+                type=node.type,
+                embedding_id=node.embedding_id,
+                report_ids=node.report_ids,
+            )
+
+    def add_edge(self, edge: GraphEdge) -> None:
+        with self.driver.session() as session:
+            session.run(
+                """
+                MATCH (a:Entity {canonical_name: $source})
+                MATCH (b:Entity {canonical_name: $target})
+                MERGE (a)-[r:RELATES {type: $type}]->(b)
+                SET r.weight = coalesce(r.weight, 0) + 1
+                WITH r
+                UNWIND $report_ids AS rid
+                SET r.report_ids = coalesce(r.report_ids, []) + rid
+                """,
+                source=edge.source, target=edge.target,
+                type=edge.type, report_ids=edge.report_ids,
+            )
+
+    def get_node(self, canonical_name: str) -> Optional[GraphNode]:
+        with self.driver.session() as session:
+            result = session.run(
+                "MATCH (n:Entity {canonical_name: $name}) RETURN n",
+                name=canonical_name.lower().strip(),
+            )
+            record = result.single()
+            if not record:
+                return None
+            n = record["n"]
+            return GraphNode(
+                name=n.get("name", ""),
+                type=n.get("type", ""),
+                canonical_name=n.get("canonical_name", ""),
+                report_ids=n.get("report_ids", []),
+                embedding_id=n.get("embedding_id"),
+            )
+
+    def get_neighbors(
+        self, entity: str, edge_types: Optional[list[str]] = None, depth: int = 2
+    ) -> SubgraphResult:
+        key = entity.lower().strip()
+        edge_filter = ""
+        params: dict = {"name": key, "depth": depth}
+        if edge_types:
+            edge_filter = "WHERE r.type IN $edge_types"
+            params["edge_types"] = edge_types
+
+        with self.driver.session() as session:
+            result = session.run(
+                f"""
+                MATCH path = (start:Entity {{canonical_name: $name}})-[r:RELATES*1..{depth}]-(end:Entity)
+                {edge_filter}
+                UNWIND nodes(path) AS n
+                UNWIND relationships(path) AS rel
+                RETURN DISTINCT n, rel
+                """,
+                **params,
+            )
+            nodes_dict = {}
+            edges_list = []
+            for record in result:
+                n = record["n"]
+                cn = n.get("canonical_name", "")
+                if cn not in nodes_dict:
+                    nodes_dict[cn] = GraphNode(
+                        name=n.get("name", ""),
+                        type=n.get("type", ""),
+                        canonical_name=cn,
+                        report_ids=n.get("report_ids", []),
+                    )
+                rel = record["rel"]
+                edges_list.append(GraphEdge(
+                    source=rel.start_node.get("canonical_name", ""),
+                    target=rel.end_node.get("canonical_name", ""),
+                    type=rel.get("type", ""),
+                    weight=rel.get("weight", 1),
+                    report_ids=rel.get("report_ids", []),
+                ))
+            return SubgraphResult(
+                nodes=list(nodes_dict.values()),
+                edges=edges_list,
+            )
+
+    def get_causal_chain(
+        self, start_entity: str, end_entity: str
+    ) -> list[list[str]]:
+        with self.driver.session() as session:
+            result = session.run(
+                """
+                MATCH path = shortestPath(
+                    (a:Entity {canonical_name: $start})-[r:RELATES*..5]-(b:Entity {canonical_name: $end})
+                )
+                WHERE ALL(rel IN relationships(path) WHERE rel.type IN ['CAUSED_BY', 'CONTRIBUTED_TO', 'PRECEDED_BY'])
+                RETURN [n IN nodes(path) | n.canonical_name] AS chain
+                LIMIT 10
+                """,
+                start=start_entity.lower().strip(),
+                end=end_entity.lower().strip(),
+            )
+            return [record["chain"] for record in result]
+
+    def get_high_centrality_nodes(self, top_n: int = 20) -> list[tuple[str, float]]:
+        with self.driver.session() as session:
+            result = session.run(
+                """
+                MATCH (n:Entity)
+                WITH n, size([(n)-[]-() | 1]) AS degree
+                RETURN n.canonical_name AS name, toFloat(degree) AS centrality
+                ORDER BY centrality DESC
+                LIMIT $top_n
+                """,
+                top_n=top_n,
+            )
+            return [(r["name"], r["centrality"]) for r in result]
+
+    def get_subgraph(self, report_id: str) -> SubgraphResult:
+        with self.driver.session() as session:
+            result = session.run(
+                """
+                MATCH (n:Entity) WHERE $report_id IN n.report_ids
+                OPTIONAL MATCH (n)-[r:RELATES]-(m:Entity)
+                WHERE $report_id IN m.report_ids
+                RETURN DISTINCT n, r, m
+                """,
+                report_id=report_id,
+            )
+            nodes_dict = {}
+            edges_list = []
+            for record in result:
+                for node_key in ["n", "m"]:
+                    n = record[node_key]
+                    if n:
+                        cn = n.get("canonical_name", "")
+                        if cn and cn not in nodes_dict:
+                            nodes_dict[cn] = GraphNode(
+                                name=n.get("name", ""),
+                                type=n.get("type", ""),
+                                canonical_name=cn,
+                                report_ids=n.get("report_ids", []),
+                            )
+                rel = record["r"]
+                if rel:
+                    edges_list.append(GraphEdge(
+                        source=rel.start_node.get("canonical_name", ""),
+                        target=rel.end_node.get("canonical_name", ""),
+                        type=rel.get("type", ""),
+                        weight=rel.get("weight", 1),
+                    ))
+            return SubgraphResult(
+                nodes=list(nodes_dict.values()),
+                edges=edges_list,
+            )
+
+    def node_count(self) -> int:
+        with self.driver.session() as session:
+            result = session.run("MATCH (n:Entity) RETURN count(n) AS c")
+            return result.single()["c"]
+
+    def edge_count(self) -> int:
+        with self.driver.session() as session:
+            result = session.run("MATCH ()-[r:RELATES]->() RETURN count(r) AS c")
+            return result.single()["c"]
+
+    def save(self) -> None:
+        pass  # Neo4j persists automatically
+
+
+def detect_backend() -> GraphBackend:
+    """Auto-detect available graph backend."""
+    # Try Neo4j first
+    try:
+        backend = Neo4jBackend()
+        print(f"Connected to Neo4j at {backend.uri}")
+        return backend
+    except Exception:
+        pass
+
+    # Fall back to NetworkX
+    print("Neo4j unavailable, using NetworkX backend")
+    return NetworkXBackend()
+
+
+def build_graph(
+    extractions_path: Optional[Path] = None,
+    backend: Optional[GraphBackend] = None,
+) -> GraphBackend:
+    """Build knowledge graph from extraction results."""
+    if extractions_path is None:
+        extractions_path = PROCESSED_DIR / "extractions.jsonl"
+    if backend is None:
+        backend = detect_backend()
+
+    from aerograph.extract import load_extractions
+    extractions = load_extractions(extractions_path)
+    print(f"Building graph from {len(extractions)} extraction results")
+
+    total_entities = 0
+    total_relations = 0
+
+    for result in extractions:
+        for entity in result.entities:
+            backend.add_node(GraphNode(
+                name=entity.name,
+                type=entity.type,
+                canonical_name=entity.canonical_name,
+                report_ids=entity.report_ids,
+            ))
+            total_entities += 1
+
+        for relation in result.relations:
+            backend.add_edge(GraphEdge(
+                source=relation.source,
+                target=relation.target,
+                type=relation.type,
+                report_ids=relation.report_ids,
+            ))
+            total_relations += 1
+
+    backend.save()
+    print(f"Graph built: {backend.node_count()} nodes, {backend.edge_count()} edges")
+    print(f"  (from {total_entities} entity mentions, {total_relations} relation mentions)")
+    return backend

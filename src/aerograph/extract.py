@@ -145,10 +145,14 @@ def _parse_extraction(text: str, report_id: str) -> ExtractionResult:
         name = e.get("name", "").strip()
         etype = e.get("type", "Event")
         if name and etype in NODE_TYPES:
+            # Normalize canonical name: lowercase, strip, collapse whitespace
+            canonical = re.sub(r"\s+", " ", name.lower().strip())
+            # Remove trailing punctuation from entity names
+            canonical = canonical.rstrip(".,;:!?")
             entities.append(Entity(
                 name=name,
                 type=etype,
-                canonical_name=name.lower().strip(),
+                canonical_name=canonical,
                 report_ids=[report_id],
             ))
 
@@ -173,14 +177,41 @@ def _parse_extraction(text: str, report_id: str) -> ExtractionResult:
     )
 
 
+def _canonicalize_name(name: str) -> str:
+    """Apply canonical normalization to an entity name."""
+    name = name.lower().strip()
+    name = re.sub(r"\s+", " ", name)
+    name = name.rstrip(".,;:!?")
+    # Normalize common aviation abbreviations
+    replacements = {
+        "aircraft": "acft",
+        "runway": "rwy",
+        "altitude": "alt",
+        "frequency": "freq",
+        "communication": "comm",
+        "maintenance": "maint",
+        "controller": "ctlr",
+    }
+    for full, abbr in replacements.items():
+        if name == full:
+            name = abbr
+    return name
+
+
 def normalize_entities(entities: list[Entity], threshold: float = 0.85) -> list[Entity]:
     """Deduplicate entities using fuzzy string matching.
 
     Merges entities of the same type whose canonical names are similar
-    above the given threshold (SequenceMatcher ratio).
+    above the given threshold (SequenceMatcher ratio). Tuned from 0.90
+    down to 0.85 after observing near-duplicate clusters like
+    'bird strike' / 'bird strikes' / 'birdstrike' in extraction output.
     """
     if not entities:
         return []
+
+    # Re-canonicalize all names before dedup
+    for e in entities:
+        e.canonical_name = _canonicalize_name(e.canonical_name)
 
     # Group by type
     by_type: dict[str, list[Entity]] = {}

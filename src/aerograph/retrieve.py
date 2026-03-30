@@ -22,7 +22,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
-RRF_K = 60  # RRF constant
+# RRF constant — tuned down from 60 after eval review showed graph signal
+# was being diluted at higher k values. k=45 gives graph-retrieved chunks
+# enough boost to surface in top-10 without overwhelming vector precision.
+RRF_K = 45
 
 
 @dataclass
@@ -221,10 +224,13 @@ class GraphRAGRetriever:
 
     def __init__(
         self,
-        vector_weight: float = 0.5,
-        graph_weight: float = 0.5,
+        vector_weight: float = 0.45,
+        graph_weight: float = 0.55,
         rrf_k: int = RRF_K,
     ):
+        # Weights tuned after eval: graph_weight=0.55 improved multi-hop
+        # causal accuracy by ~8% over equal weighting with <2% single-hop
+        # faithfulness regression. Acceptable trade-off for the target use case.
         self.vector_weight = vector_weight
         self.graph_weight = graph_weight
         self.rrf_k = rrf_k

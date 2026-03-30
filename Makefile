@@ -1,4 +1,4 @@
-.PHONY: install ingest build serve eval demo paper all
+.PHONY: install ingest build serve eval demo paper all clean test
 
 install:
 	pip install -e ".[dev]"
@@ -20,5 +20,12 @@ demo:
 
 paper:
 	python -m aerograph.eval --figures-only
+
+test:
+	python -m pytest tests/ -v
+
+clean:
+	rm -rf data/processed/*.jsonl data/graphs/*.pkl data/chroma_db/
+	rm -rf paper/figures/*.png paper/results/*.json
 
 all: install ingest build eval paper

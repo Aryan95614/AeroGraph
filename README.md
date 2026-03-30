@@ -1,120 +1,157 @@
 # AeroGraph
 
-**Ask natural language questions about 47,000+ aviation safety incidents. Get cited answers from real NASA ASRS data.**
+**GraphRAG over aviation safety incident reports for causal reasoning and safety pattern extraction.**
 
-AeroGraph is a RAG (Retrieval-Augmented Generation) system built on NASA's [Aviation Safety Reporting System](https://asrs.arc.nasa.gov/) database. It embeds and indexes voluntary incident reports filed by pilots, controllers, mechanics, and flight attendants — then answers free-text queries with source-cited responses referencing specific ASRS report IDs.
+AeroGraph demonstrates that graph-structured retrieval outperforms vanilla RAG on multi-hop causal queries in the aviation safety domain. Built on NASA ASRS (Aviation Safety Reporting System) incident reports.
 
-Deployed as a serverless endpoint on [Modal](https://modal.com).
-
-## Why This Matters
-
-On January 29, 2025, PSA Airlines Flight 5342 collided with a Black Hawk helicopter on approach to Reagan National Airport. Sixty-seven passengers and four crew members were killed. The NTSB's final report, released in February 2026, found that the FAA had documented over 15,000 close-proximity events between helicopters and commercial aircraft at DCA alone. The warning data existed for decades — it was never systematically analyzed.
-
-AeroGraph makes pattern discovery across aviation safety data instant and accessible. Safety analysts, researchers, and regulators can query decades of incident reports in natural language instead of searching NASA's legacy database interface one record at a time.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    A[ASRS Data<br/>HuggingFace] --> B[Chunk Reports<br/>narrative + synopsis + metadata]
-    B --> C[Embed<br/>text-embedding-3-small]
-    C --> D[FAISS Index<br/>vector store]
-    D --> E[Query Endpoint<br/>Modal web]
-    E --> F[LLM Generation<br/>GPT-4o-mini]
-    F --> G[Cited Answer<br/>with ASRS report IDs]
+```
+                    ┌──────────────────────────────────────────────────┐
+                    │                  AeroGraph                       │
+                    │                                                  │
+  ASRS Reports      │   ┌─────────┐    ┌───────────┐    ┌──────────┐  │
+  ──────────────────►   │ Ingest  │───►│  Extract  │───►│  Graph   │  │
+                    │   │ (clean) │    │ (Claude)  │    │(Neo4j/NX)│  │
+                    │   └─────────┘    └───────────┘    └────┬─────┘  │
+                    │                                        │        │
+                    │   ┌─────────┐    ┌───────────┐         │        │
+                    │   │ Embed   │───►│ ChromaDB  │─────────┤        │
+                    │   │ (SBERT) │    │ (vectors) │         │        │
+                    │   └─────────┘    └───────────┘         │        │
+                    │                                        ▼        │
+  Query             │                  ┌───────────┐    ┌──────────┐  │
+  ──────────────────►──────────────────►  Retrieve │───►│ Generate │──►── Answer
+                    │                  │ (RRF fuse)│    │ (Claude) │  │
+                    │                  └───────────┘    └──────────┘  │
+                    │                                                  │
+                    │   ┌─────────┐    ┌───────────┐                  │
+                    │   │  Eval   │───►│  Figures  │                  │
+                    │   │(50-Q)   │    │  (paper)  │                  │
+                    │   └─────────┘    └───────────┘                  │
+                    └──────────────────────────────────────────────────┘
 ```
 
 ## Quick Start
 
 ```bash
-# Clone
-git clone https://github.com/YOUR_USERNAME/aerograph.git
+# 1. Clone and install
+git clone https://github.com/yourusername/aerograph.git
 cd aerograph
+make install
 
-# Install dependencies
-pip install -r requirements.txt
+# 2. Set up environment
+cp .env.example .env
+# Edit .env with your ANTHROPIC_API_KEY
 
-# Set up Modal (one-time)
-modal setup
+# 3. Run the full pipeline
+make ingest    # Download/generate ASRS reports
+make build     # Extract entities + build knowledge graph
+make eval      # Run 50-query evaluation benchmark
+make paper     # Generate figures and results tables
 
-# Configure secrets (OpenAI API key)
-modal secret create openai-secret OPENAI_API_KEY=sk-...
-
-# Run the pipeline — loads data, chunks, embeds, builds index
-modal run pipeline.py
-
-# Deploy the endpoint
-modal deploy app.py
-
-# Query it
-curl -X POST https://YOUR_MODAL_URL/query \
-  -H "Content-Type: application/json" \
-  -d '{"question": "What are common causes of runway incursions at major airports?"}'
+# 4. Start the API server
+make serve     # FastAPI on http://localhost:8000
 ```
 
-## Example Queries
+## Architecture
 
-| Question | What AeroGraph surfaces |
-|----------|------------------------|
-| *"What are the most reported human factors in approach-phase incidents?"* | Clusters of reports citing fatigue, distraction, and communication breakdowns during approach, with specific ASRS narratives from pilots and controllers. |
-| *"Have there been near-miss incidents between helicopters and commercial aircraft at DCA?"* | Matching reports describing close-proximity events at Reagan National, with pilot narratives detailing altitude and separation details. |
-| *"What kinds of maintenance issues lead to in-flight engine shutdowns?"* | Mechanic and flight crew reports describing engine failures traced to maintenance errors, including contributing factors and aircraft types. |
-| *"How often do flight attendants report turbulence injuries?"* | Cabin crew narratives describing turbulence events, injury types, and whether seatbelt signs were active at the time of the incident. |
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| **Ingestion** | Python + httpx | ASRS download with synthetic fallback |
+| **Extraction** | Claude claude-sonnet-4-20250514 | Entity/relation extraction with aviation ontology |
+| **Graph Store** | Neo4j / NetworkX | Knowledge graph with causal edges |
+| **Vector Store** | ChromaDB | Semantic chunk retrieval |
+| **Embeddings** | all-MiniLM-L6-v2 | Local sentence embeddings (384-dim) |
+| **Retrieval** | RRF Fusion | Hybrid vector + graph scoring |
+| **Generation** | Claude claude-sonnet-4-20250514 | Answer generation with source tracing |
+| **Evaluation** | Claude-as-Judge | Faithfulness, relevance, causal accuracy |
+| **API** | FastAPI | REST endpoints for queries and graph exploration |
 
-## Data
+## API Endpoints
 
-47,723 reports loaded from [`elihoole/asrs-aviation-reports`](https://huggingface.co/datasets/elihoole/asrs-aviation-reports) on HuggingFace. Each report contains:
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/query` | Run a GraphRAG query |
+| GET | `/graph/entity/{name}` | Entity neighborhood as JSON |
+| GET | `/stats` | Graph node/edge/report counts |
+| GET | `/health` | Liveness check |
 
-- **Narrative** — the reporter's own account of the incident
-- **Synopsis** — NASA analyst summary
-- **Structured metadata** — aircraft type, airport, flight phase, primary problem, contributing factors, human factors
-- **Callback notes** — follow-up investigation details (when available)
+### Example Query
 
-## Tech Stack
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What causal chain links bird strikes to engine failure?", "top_k": 5}'
+```
 
-| Component | Tool |
-|-----------|------|
-| Compute | [Modal](https://modal.com) — serverless GPU/CPU infrastructure |
-| Embeddings | [OpenAI text-embedding-3-small](https://platform.openai.com/docs/guides/embeddings) |
-| Vector search | [FAISS](https://github.com/facebookresearch/faiss) |
-| Generation | [GPT-4o-mini](https://platform.openai.com/docs/models) (swappable) |
-| Data loading | [HuggingFace Datasets](https://huggingface.co/docs/datasets) |
+## Evaluation
+
+The benchmark suite contains 50 queries:
+- **20 single-hop factual** — direct lookups against the corpus
+- **20 multi-hop causal** — requires reasoning across multiple reports
+- **10 comparative** — cross-entity or cross-category analysis
+
+Metrics: faithfulness, answer relevance, context precision, context recall, causal chain accuracy.
 
 ## Project Structure
 
 ```
 aerograph/
-├── README.md
-├── requirements.txt
-├── .gitignore
-├── config.py        # Modal app config, shared volume, container image, secrets
-├── data.py          # Load from HuggingFace, chunk reports for embedding
-├── pipeline.py      # Modal functions: process reports + generate embeddings
-├── app.py           # Modal web endpoint: /query and /health
-└── blog/
-    └── draft.md     # Tutorial blog post draft
+├── src/aerograph/
+│   ├── ingest.py      # ASRS data download + cleaning
+│   ├── extract.py     # LLM entity/relation extraction
+│   ├── graph.py       # Neo4j/NetworkX graph construction
+│   ├── embed.py       # ChromaDB chunking + embedding
+│   ├── retrieve.py    # Hybrid GraphRAG retrieval (RRF)
+│   ├── generate.py    # Claude answer generation
+│   ├── eval.py        # Evaluation framework + figures
+│   └── api.py         # FastAPI server
+├── scripts/
+│   ├── build_graph.py # Graph construction entry point
+│   ├── run_eval.py    # Evaluation entry point
+│   └── demo.py        # Demo with 5 example queries
+├── tests/
+├── paper/
+│   ├── abstract.md
+│   ├── results_table.md
+│   ├── figures/
+│   └── results/
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── graphs/
+├── pyproject.toml
+├── Makefile
+└── DECISIONS.md
 ```
 
-## Project Status
+## Limitations
 
-- [x] Load and parse ASRS dataset from HuggingFace
-- [x] Chunk reports into retrievable segments
-- [x] Generate embeddings with OpenAI
-- [x] Build FAISS index
-- [x] RAG query pipeline with cited answers
-- [x] Deploy as serverless endpoint on Modal
-- [ ] Scale to full 300K+ ASRS corpus
-- [ ] Interactive web UI
-- [ ] Graph-based entity extraction
-- [ ] Domain-specific embedding fine-tuning
+See [Limitations](#limitations-1) section below.
 
-## Roadmap
+### Limitations
 
-- **Full corpus** — scale from 47K to the complete 300K+ ASRS report archive
-- **Entity graph** — extract and link entities (airports, aircraft, operators, failure modes) into a queryable knowledge graph
-- **Web UI** — interactive frontend for non-technical users: search, filter, and explore incident patterns visually
-- **Fine-tuned embeddings** — train domain-specific embedding model on aviation safety text to improve retrieval precision
+1. **Synthetic data caveat**: If ASRS download fails, the system falls back to
+   synthetic reports generated by Claude. These lack the nuance and diversity of
+   real incident reports. All downstream metrics should be interpreted with this
+   in mind.
 
-## About
+2. **Evaluation with LLM-as-judge**: Faithfulness and relevance scores use
+   Claude as evaluator, not human annotations. This creates a circular
+   dependency when Claude also generates the answers. We report these metrics
+   transparently but do not claim they substitute for human evaluation.
 
-Built by Aryan Dhawan. Independent open-source project. Data sourced from NASA's Aviation Safety Reporting System via [HuggingFace](https://huggingface.co/datasets/elihoole/asrs-aviation-reports).
+3. **Graph coverage**: Entity extraction quality depends on Claude's domain
+   understanding. Extraction errors propagate to the graph structure and
+   downstream retrieval.
+
+4. **Single embedding model**: all-MiniLM-L6-v2 is a general-purpose model, not
+   fine-tuned on aviation text. Domain-specific embeddings would likely improve
+   vector retrieval quality.
+
+5. **No temporal reasoning**: The graph structure does not encode temporal
+   relationships between events. Causal chains are inferred from co-occurrence
+   and LLM extraction, not temporal ordering.
+
+## License
+
+MIT

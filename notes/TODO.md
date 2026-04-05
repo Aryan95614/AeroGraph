@@ -1,5 +1,6 @@
 # TODO
 
+- [x] Research entity resolution approaches
 - [ ] Implement taxonomy-based entity resolution
 - [ ] Add community detection (Leiden algorithm)
 - [ ] Build pairwise comparison evaluation

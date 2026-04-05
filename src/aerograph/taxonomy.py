@@ -765,12 +765,19 @@ def _normalize_raw(name: str) -> str:
     return name
 
 
-
 def resolve_entity(
     raw_name: str,
     entity_type: str,
+    embeddings_model=None,
+    _embedding_cache: dict | None = None,
 ) -> tuple[str, float]:
-    """Resolve a raw entity name to its canonical form via exact match.
+    """Resolve a raw entity name to its canonical form.
+
+    Resolution strategy (in order):
+    1. Exact match against canonical names and aliases (confidence=1.0)
+    2. Fuzzy match with rapidfuzz ratio > 85 (confidence=ratio/100)
+    3. Embedding similarity > 0.75 if model provided (confidence=similarity)
+    4. No match: return original (confidence=0.0)
 
     Returns (canonical_name, confidence).
     """
@@ -780,10 +787,259 @@ def resolve_entity(
 
     normalized = _normalize_raw(raw_name)
 
+    # Skip anonymized aircraft
     if entity_type == "Aircraft" and normalized in ANONYMIZED_AIRCRAFT:
         return (raw_name, 0.0)
 
     if normalized in lookup:
         return (lookup[normalized], 1.0)
 
+    # Fuzzy match against all aliases
+    best_canonical = None
+    best_score = 0.0
+    for alias, canonical in lookup.items():
+        score = fuzz.ratio(normalized, alias)
+        if score > best_score:
+            best_score = score
+            best_canonical = canonical
+
+    if best_score >= 85 and best_canonical is not None:
+        return (best_canonical, best_score / 100.0)
+
+    # Embedding similarity fallback
+    if embeddings_model is not None and entity_type in TAXONOMY_CANONICALS:
+        canonicals = TAXONOMY_CANONICALS[entity_type]
+        if _embedding_cache is not None and entity_type in _embedding_cache:
+            canonical_embeddings = _embedding_cache[entity_type]
+        else:
+            canonical_embeddings = embeddings_model.encode(canonicals)
+            if _embedding_cache is not None:
+                _embedding_cache[entity_type] = canonical_embeddings
+
+        query_embedding = embeddings_model.encode([normalized])
+
+        # Cosine similarity
+        import numpy as np
+        similarities = np.dot(canonical_embeddings, query_embedding.T).flatten()
+        norms_c = np.linalg.norm(canonical_embeddings, axis=1)
+        norm_q = np.linalg.norm(query_embedding)
+        if norm_q > 0:
+            similarities = similarities / (norms_c * norm_q + 1e-9)
+
+        best_idx = int(np.argmax(similarities))
+        best_sim = float(similarities[best_idx])
+        if best_sim > 0.75:
+            return (canonicals[best_idx], best_sim)
+
+    # No match
     return (raw_name, 0.0)
+
+
+def dedup_extractions(input_path: Path, output_path: Path) -> tuple[int, int, int]:
+    """Remove exact duplicate lines from extractions JSONL.
+
+    Returns (total_lines, unique_lines, duplicates_removed).
+    """
+    seen: set[str] = set()
+    unique_lines: list[str] = []
+
+    with open(input_path) as f:
+        for line in f:
+            stripped = line.strip()
+            if stripped and stripped not in seen:
+                seen.add(stripped)
+                unique_lines.append(stripped)
+
+    total = len(seen) + (len(open(input_path).readlines()) - len(seen))
+    # Re-count properly
+    with open(input_path) as f:
+        all_lines = [l.strip() for l in f if l.strip()]
+    total = len(all_lines)
+    duplicates = total - len(unique_lines)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
+        for line in unique_lines:
+            f.write(line + "\n")
+
+    print(f"Dedup: {total} lines -> {len(unique_lines)} unique ({duplicates} duplicates removed)")
+    return (total, len(unique_lines), duplicates)
+
+
+def resolve_all_entities(
+    input_path: Path,
+    output_path: Path,
+    use_embeddings: bool = True,
+) -> dict[str, dict]:
+    """Process all entities in an extractions JSONL file through taxonomy resolution.
+
+    Returns stats dict with per-type resolution rates.
+    """
+    embeddings_model = None
+    if use_embeddings:
+        try:
+            from sentence_transformers import SentenceTransformer
+            embeddings_model = SentenceTransformer("all-MiniLM-L6-v2")
+        except Exception:
+            print("Warning: Could not load embedding model, skipping embedding-based resolution")
+
+    embedding_cache: dict[str, any] = {}
+
+    stats: dict[str, dict] = {}
+    total_entities = 0
+    total_resolved = 0
+
+    extractions: list[dict] = []
+    with open(input_path) as f:
+        for line in f:
+            extractions.append(json.loads(line.strip()))
+
+    print(f"Resolving entities in {len(extractions)} extractions...")
+
+    for extraction in extractions:
+        # Build old->new name mapping as entities are resolved
+        entity_name_map: dict[str, str] = {}
+
+        for entity in extraction.get("entities", []):
+            entity_type = entity.get("type", "")
+            raw_name = entity.get("canonical_name", entity.get("name", ""))
+            total_entities += 1
+
+            if entity_type not in stats:
+                stats[entity_type] = {"total": 0, "resolved": 0, "unresolved": 0}
+            stats[entity_type]["total"] += 1
+
+            canonical, confidence = resolve_entity(
+                raw_name, entity_type,
+                embeddings_model=embeddings_model,
+                _embedding_cache=embedding_cache,
+            )
+
+            if confidence > 0.7:
+                new_canonical = canonical.lower()
+                # Track the rename: old canonical_name -> new canonical_name
+                if raw_name != new_canonical:
+                    entity_name_map[raw_name] = new_canonical
+                entity["canonical_name"] = new_canonical
+                entity["name"] = canonical
+                entity["resolution_confidence"] = round(confidence, 3)
+                stats[entity_type]["resolved"] += 1
+                total_resolved += 1
+            else:
+                stats[entity_type]["unresolved"] += 1
+
+        # Remap relation endpoints to match resolved entity names
+        for relation in extraction.get("relations", []):
+            src = relation.get("source", "")
+            tgt = relation.get("target", "")
+            if src in entity_name_map:
+                relation["source"] = entity_name_map[src]
+            if tgt in entity_name_map:
+                relation["target"] = entity_name_map[tgt]
+
+    # Save normalized extractions
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
+        for extraction in extractions:
+            f.write(json.dumps(extraction) + "\n")
+
+    print(f"\nResolution complete: {total_resolved}/{total_entities} entities resolved "
+          f"({total_resolved/max(total_entities,1)*100:.1f}%)")
+    print(f"Saved to {output_path}")
+
+    # Per-type summary
+    print("\nPer-type resolution rates:")
+    for etype in sorted(stats.keys()):
+        s = stats[etype]
+        rate = s["resolved"] / max(s["total"], 1) * 100
+        print(f"  {etype:20s}: {s['resolved']:5d}/{s['total']:5d} ({rate:5.1f}%)")
+
+    return stats
+
+
+def run_normalize(use_embeddings: bool = True) -> dict:
+    """Run full normalization pipeline: dedup -> resolve -> report.
+
+    Returns stats dict.
+    """
+    extractions_path = PROCESSED_DIR / "extractions.jsonl"
+    deduped_path = PROCESSED_DIR / "extractions_deduped.jsonl"
+    normalized_path = PROCESSED_DIR / "extractions_normalized.jsonl"
+
+    if not extractions_path.exists():
+        print(f"Error: {extractions_path} not found")
+        return {}
+
+    print("=" * 60)
+    print("AeroGraph Entity Normalization Pipeline")
+    print("=" * 60)
+
+    print("\n[1/3] Deduplicating extractions...")
+    total, unique, dupes = dedup_extractions(extractions_path, deduped_path)
+
+    print("\n[2/3] Resolving entities against taxonomies...")
+    stats = resolve_all_entities(deduped_path, normalized_path, use_embeddings=use_embeddings)
+
+    print("\n[3/3] Rebuilding graph with normalized entities...")
+    from aerograph.graph import build_normalized_graph
+    build_normalized_graph(normalized_path)
+
+    return stats
+
+
+def print_taxonomy_stats() -> None:
+    """Print taxonomy coverage and resolution statistics."""
+    print("=" * 60)
+    print("AeroGraph Taxonomy Statistics")
+    print("=" * 60)
+
+    print(f"\nHFACS Taxonomy:")
+    print(f"  Level 1 categories: {len(HFACS_LEVEL1)}")
+    l1_counts: dict[str, int] = {}
+    for info in HFACS_TAXONOMY.values():
+        l1 = info["l1"]
+        l1_counts[l1] = l1_counts.get(l1, 0) + 1
+    for l1 in HFACS_LEVEL1:
+        print(f"    {l1}: {l1_counts.get(l1, 0)} Level 2 categories")
+    print(f"  Total Level 2 categories: {len(HFACS_TAXONOMY)}")
+    print(f"  Total aliases: {sum(len(v['aliases']) for v in HFACS_TAXONOMY.values())}")
+
+    print(f"\nPhase of Flight: {len(PHASE_OF_FLIGHT)} phases, "
+          f"{sum(len(v) for v in PHASE_OF_FLIGHT.values())} aliases")
+
+    print(f"\nAircraft Types: {len(AIRCRAFT_TYPES)} ICAO codes, "
+          f"{sum(len(v) for v in AIRCRAFT_TYPES.values())} aliases")
+
+    print(f"\nWeather Conditions: {len(WEATHER_CONDITIONS)} categories, "
+          f"{sum(len(v) for v in WEATHER_CONDITIONS.values())} aliases")
+
+    print(f"\nAirport Codes: {len(AIRPORT_CODES)} airports, "
+          f"{sum(len(v) for v in AIRPORT_CODES.values())} aliases")
+
+    # Check if normalized extractions exist
+    normalized_path = PROCESSED_DIR / "extractions_normalized.jsonl"
+    if normalized_path.exists():
+        print(f"\n{'='*60}")
+        print("Resolution Results (from last normalization run):")
+        total = 0
+        resolved = 0
+        by_type: dict[str, dict] = {}
+        with open(normalized_path) as f:
+            for line in f:
+                data = json.loads(line)
+                for e in data.get("entities", []):
+                    etype = e.get("type", "")
+                    if etype not in by_type:
+                        by_type[etype] = {"total": 0, "resolved": 0}
+                    by_type[etype]["total"] += 1
+                    total += 1
+                    if e.get("resolution_confidence", 0) > 0:
+                        by_type[etype]["resolved"] += 1
+                        resolved += 1
+        print(f"  Total: {resolved}/{total} ({resolved/max(total,1)*100:.1f}%)")
+        for etype in sorted(by_type):
+            s = by_type[etype]
+            rate = s["resolved"] / max(s["total"], 1) * 100
+            print(f"  {etype:20s}: {s['resolved']:5d}/{s['total']:5d} ({rate:5.1f}%)")
+    else:
+        print(f"\nNo normalized extractions found. Run: python -m aerograph normalize")

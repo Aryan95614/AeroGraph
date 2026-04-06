@@ -7,6 +7,7 @@ from aerograph.extract import (
     Relation,
     ExtractionResult,
     _parse_extraction,
+    _differ_only_by_number,
     normalize_entities,
     normalize_relations,
     _resolve_name,
@@ -20,12 +21,12 @@ class TestOntology:
         assert "Aircraft" in NODE_TYPES
         assert "Event" in NODE_TYPES
         assert "Factor" in NODE_TYPES
-        assert len(NODE_TYPES) == 9
+        assert len(NODE_TYPES) == 10
 
     def test_edge_types(self):
         assert "CAUSED_BY" in EDGE_TYPES
         assert "CONTRIBUTED_TO" in EDGE_TYPES
-        assert len(EDGE_TYPES) == 7
+        assert len(EDGE_TYPES) == 8
 
 
 class TestParseExtraction:
@@ -94,6 +95,22 @@ class TestNormalizeEntities:
         merged = normalize_entities(entities, threshold=0.85)
         assert len(merged) == 2
 
+    def test_numbered_entities_not_merged(self):
+        entities = [
+            Entity(name="engine 1 failure", type="Event", report_ids=["1"]),
+            Entity(name="engine 2 failure", type="Event", report_ids=["2"]),
+        ]
+        merged = normalize_entities(entities, threshold=0.85)
+        assert len(merged) == 2
+
+    def test_runway_numbers_not_merged(self):
+        entities = [
+            Entity(name="runway 28L", type="Component", report_ids=["1"]),
+            Entity(name="runway 28R", type="Component", report_ids=["2"]),
+        ]
+        merged = normalize_entities(entities, threshold=0.85)
+        assert len(merged) == 2
+
     def test_dissimilar_names_not_merged(self):
         entities = [
             Entity(name="bird strike", type="Event", report_ids=["1"]),
@@ -127,6 +144,21 @@ class TestNormalizeRelations:
         ]
         normalized = normalize_relations(relations, entity_map)
         assert len(normalized) == 0
+
+
+class TestDifferOnlyByNumber:
+    def test_engine_numbers(self):
+        assert _differ_only_by_number("engine 1 failure", "engine 2 failure") is True
+
+    def test_runway_designators(self):
+        assert _differ_only_by_number("runway 28l", "runway 28r") is True  # different designators
+        assert _differ_only_by_number("runway 28", "runway 10") is True
+
+    def test_no_numbers(self):
+        assert _differ_only_by_number("bird strike", "bird strikes") is False
+
+    def test_same_numbers(self):
+        assert _differ_only_by_number("engine 1", "engine 1") is False
 
 
 class TestResolveName:

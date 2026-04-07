@@ -13,11 +13,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+import os
+
 import chromadb
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
+DATA_DIR = Path(os.environ.get("AEROGRAPH_DATA_DIR", Path(__file__).parent.parent.parent / "data"))
 PROCESSED_DIR = DATA_DIR / "processed"
 CHROMA_DIR = DATA_DIR / "chroma_db"
 
@@ -99,6 +101,12 @@ def get_embedding_model() -> SentenceTransformer:
     return SentenceTransformer(EMBED_MODEL)
 
 
+def get_collection(persist_dir: Optional[Path] = None):
+    """Get the existing ChromaDB collection."""
+    client = get_chroma_client(persist_dir)
+    return client.get_collection(COLLECTION_NAME)
+
+
 def build_index(
     reports_path: Optional[Path] = None,
     extractions_path: Optional[Path] = None,
@@ -113,10 +121,16 @@ def build_index(
     if extractions_path is None:
         extractions_path = PROCESSED_DIR / "extractions.jsonl"
 
-    # Load reports
+    # Load reports (deduplicate by ID)
     from aerograph.ingest import load_reports
-    reports = load_reports(reports_path)
-    print(f"Loaded {len(reports)} reports for embedding")
+    all_reports = load_reports(reports_path)
+    seen_ids: set[str] = set()
+    reports = []
+    for r in all_reports:
+        if r.id not in seen_ids:
+            seen_ids.add(r.id)
+            reports.append(r)
+    print(f"Loaded {len(reports)} reports for embedding (deduped from {len(all_reports)})")
 
     # Load entity extractions for chunk-entity mapping
     entity_map: dict[str, list[str]] = {}

@@ -773,3 +773,35 @@ def build_normalized_graph(normalized_path: Path) -> GraphBackend:
     return build_graph(extractions_path=normalized_path)
 
 
+_PLACEHOLDER_PATTERNS = re.compile(
+    r"^(aircraft|event|component|factor|outcome|recommendation|weather|phase|atc)\s*[xX]$",
+    re.IGNORECASE,
+)
+
+
+def clean_graph(input_path: Path, output_path: Path) -> nx.DiGraph:
+    """Remove noise from the graph: placeholders, isolates, self-loops, missing attrs."""
+    with open(input_path, "rb") as f:
+        G: nx.DiGraph = pickle.load(f)
+
+    # Fix missing type attributes
+    for node in G.nodes():
+        if "type" not in G.nodes[node]:
+            G.nodes[node]["type"] = "unknown"
+
+    # Remove self-loops
+    G.remove_edges_from(list(nx.selfloop_edges(G)))
+
+    # Remove placeholder nodes
+    placeholders = [n for n in G.nodes() if _PLACEHOLDER_PATTERNS.match(n)]
+    G.remove_nodes_from(placeholders)
+
+    # Remove isolated nodes (degree 0)
+    isolates = list(nx.isolates(G))
+    G.remove_nodes_from(isolates)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "wb") as f:
+        pickle.dump(G, f)
+
+    return G

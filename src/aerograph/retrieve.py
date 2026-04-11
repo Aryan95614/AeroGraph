@@ -421,6 +421,84 @@ def rrf_fusion(
 
 
 # ---------------------------------------------------------------------------
+# Multi-signal RRF fusion (for HippoRAG-style pipelines)
+# ---------------------------------------------------------------------------
+
+def multi_rrf_fusion(
+    signal_lists: list[tuple[str, list[dict]]],
+    k: int = RRF_K_GRAPH,
+    signal_weights: Optional[dict[str, float]] = None,
+    top_k: int = 0,
+) -> list[RetrievedChunk]:
+    """Weighted RRF across N retrieval signals.
+
+    signal_lists: [("vector", [chunk_dicts...]), ("bm25", [...]), ...]
+    Each chunk_dict must have at least chunk_id, text, report_id.
+    """
+    if signal_weights is None:
+        signal_weights = {}
+
+    chunk_scores: dict[str, float] = {}
+    chunk_data: dict[str, dict] = {}
+    chunk_signals: dict[str, set[str]] = {}
+
+    for signal_name, ranked_list in signal_lists:
+        w = signal_weights.get(signal_name, 1.0)
+        for rank, chunk in enumerate(ranked_list):
+            cid = chunk["chunk_id"]
+            chunk_scores[cid] = chunk_scores.get(cid, 0) + w / (k + rank + 1)
+            if cid not in chunk_data:
+                chunk_data[cid] = chunk
+            chunk_signals.setdefault(cid, set()).add(signal_name)
+
+    sorted_chunks = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)
+
+    results = []
+    for cid, score in sorted_chunks:
+        data = chunk_data.get(cid, {})
+        signals = chunk_signals.get(cid, set())
+        if len(signals) > 1:
+            prov = "multi"
+        else:
+            prov = next(iter(signals), "unknown")
+
+        results.append(RetrievedChunk(
+            chunk_id=cid,
+            text=data.get("text", ""),
+            report_id=data.get("report_id", ""),
+            score=score,
+            provenance=prov,
+            entities_mentioned=data.get("entities_mentioned", []),
+        ))
+
+    if top_k > 0:
+        results = results[:top_k]
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Global / community-based search
+# ---------------------------------------------------------------------------
+
+_GLOBAL_PATTERNS = [
+    r"most common",
+    r"overall",
+    r"trends?\s+across",
+    r"how often",
+    r"how frequent",
+    r"what percentage",
+    r"on average",
+    r"typically",
+    r"general\s+pattern",
+    r"across all",
+    r"summary of",
+    r"statistics",
+]
+
+_GLOBAL_RE = re.compile("|".join(_GLOBAL_PATTERNS), re.IGNORECASE)
+
+
+# ---------------------------------------------------------------------------
 # Retrievers
 # ---------------------------------------------------------------------------
 
@@ -498,6 +576,127 @@ class BaselineRetriever:
             query_entities=[],
             latency_ms=elapsed_ms,
             retrieval_trace={"vector_results_count": len(vector_results)},
+        )
+
+
+class BM25Retriever:
+    """Okapi BM25 lexical retriever, built from scratch over ChromaDB chunks."""
+
+    def __init__(self, k1: float = 1.5, b: float = 0.75):
+        self.k1 = k1
+        self.b = b
+        self._docs: list[dict] = []
+        self._doc_freqs: dict[str, int] = {}
+        self._doc_lens: list[int] = []
+        self._avgdl: float = 0.0
+        self._inverted_index: dict[str, list[tuple[int, int]]] = {}
+        self._initialized = False
+
+    def _tokenize(self, text: str) -> list[str]:
+        return re.findall(r"[a-z0-9]+", text.lower())
+
+    def _build_index(self) -> None:
+        from aerograph.embed import get_collection
+
+        collection = get_collection()
+        all_data = collection.get(include=["documents", "metadatas"])
+
+        self._docs = []
+        for i, doc_id in enumerate(all_data["ids"]):
+            text = all_data["documents"][i] if all_data["documents"] else ""
+            meta = all_data["metadatas"][i] if all_data["metadatas"] else {}
+            self._docs.append({
+                "chunk_id": doc_id,
+                "text": text,
+                "report_id": meta.get("report_id", ""),
+                "entities_mentioned": json.loads(meta["entities_mentioned"])
+                if meta.get("entities_mentioned") else [],
+            })
+
+        n = len(self._docs)
+        self._doc_freqs = {}
+        self._inverted_index = {}
+        self._doc_lens = []
+        total_len = 0
+
+        for idx, doc in enumerate(self._docs):
+            tokens = self._tokenize(doc["text"])
+            self._doc_lens.append(len(tokens))
+            total_len += len(tokens)
+
+            tf_counts = Counter(tokens)
+            seen_terms: set[str] = set()
+            for term, tf in tf_counts.items():
+                self._inverted_index.setdefault(term, []).append((idx, tf))
+                if term not in seen_terms:
+                    self._doc_freqs[term] = self._doc_freqs.get(term, 0) + 1
+                    seen_terms.add(term)
+
+        self._avgdl = total_len / n if n > 0 else 1.0
+        self._initialized = True
+
+    def _bm25_score(self, query_tokens: list[str], doc_idx: int) -> float:
+        n = len(self._docs)
+        dl = self._doc_lens[doc_idx]
+        score = 0.0
+
+        for term in query_tokens:
+            df = self._doc_freqs.get(term, 0)
+            if df == 0:
+                continue
+            idf = math.log((n - df + 0.5) / (df + 0.5) + 1.0)
+
+            tf = 0
+            for didx, t in self._inverted_index.get(term, []):
+                if didx == doc_idx:
+                    tf = t
+                    break
+
+            tf_norm = (tf * (self.k1 + 1)) / (tf + self.k1 * (1 - self.b + self.b * dl / self._avgdl))
+            score += idf * tf_norm
+
+        return score
+
+    def retrieve(self, query: str, top_k: int = 10) -> RetrievalResult:
+        start_time = time.time()
+
+        if not self._initialized:
+            self._build_index()
+
+        query_tokens = self._tokenize(query)
+
+        candidate_indices: set[int] = set()
+        for term in query_tokens:
+            for doc_idx, _tf in self._inverted_index.get(term, []):
+                candidate_indices.add(doc_idx)
+
+        scored = []
+        for idx in candidate_indices:
+            s = self._bm25_score(query_tokens, idx)
+            if s > 0:
+                scored.append((idx, s))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+        elapsed_ms = (time.time() - start_time) * 1000
+
+        chunks = []
+        for idx, s in scored[:top_k]:
+            doc = self._docs[idx]
+            chunks.append(RetrievedChunk(
+                chunk_id=doc["chunk_id"],
+                text=doc["text"],
+                report_id=doc["report_id"],
+                score=s,
+                provenance="bm25",
+                entities_mentioned=doc.get("entities_mentioned", []),
+            ))
+
+        return RetrievalResult(
+            query=query,
+            chunks=chunks,
+            query_entities=[],
+            latency_ms=elapsed_ms,
+            retrieval_trace={"bm25_candidates": len(candidate_indices)},
         )
 
 

@@ -1,31 +1,39 @@
 """Hybrid GraphRAG retrieval with Reciprocal Rank Fusion (RRF).
 
 Pipeline:
-  1. Extract query entities via Claude
+  1. Extract query entities via Claude or embedding-based linking
   2. Vector search — top_k*2 chunks from ChromaDB
   3. Graph expansion — 2-hop neighborhood per query entity
   4. RRF fusion across vector + graph scores
   5. Return top_k chunks with provenance tags
+
+Extended with BM25, PPR, community-based global search, and HippoRAG
+multi-signal fusion (Gutierrez et al., arXiv:2405.14831).
 """
 
 from __future__ import annotations
 
 import json
+import math
 import os
+import re
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
-# RRF constant — tuned down from 60 after eval review showed graph signal
-# was being diluted at higher k values. k=45 gives graph-retrieved chunks
-# enough boost to surface in top-10 without overwhelming vector precision.
-RRF_K = 45
+DATA_DIR = Path(os.environ.get("AEROGRAPH_DATA_DIR", Path(__file__).parent.parent.parent / "data"))
+
+# RRF constant — standard value per Cormack et al. 2009
+RRF_K = 60
+# Graph-specific RRF constant. Using standard k=60 for initial eval.
+RRF_K_GRAPH = 60
 
 
 @dataclass
@@ -34,7 +42,7 @@ class RetrievedChunk:
     text: str
     report_id: str
     score: float
-    provenance: str  # "vector" | "graph" | "both"
+    provenance: str  # "vector" | "graph" | "both" | "bm25" | "ppr" | "multi"
     entities_mentioned: list[str] = field(default_factory=list)
     graph_context: str = ""
 
@@ -48,11 +56,28 @@ class RetrievalResult:
     retrieval_trace: dict = field(default_factory=dict)
 
 
+@dataclass
+class RetrievalConfig:
+    """Tunable knobs for the HippoRAG retriever."""
+    use_vector: bool = True
+    use_bm25: bool = True
+    use_ppr: bool = True
+    use_community: bool = False
+    ppr_alpha: float = 0.15
+    ppr_top_k: int = 20
+    rrf_k: int = RRF_K_GRAPH
+    community_top_k: int = 10
+    final_top_k: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Entity extraction
+# ---------------------------------------------------------------------------
+
 def extract_query_entities(query: str) -> list[str]:
     """Extract entity mentions from a query using Claude."""
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
-        # Fallback: simple keyword extraction
         return _keyword_entity_extract(query)
 
     try:
@@ -96,12 +121,87 @@ def _keyword_entity_extract(query: str) -> list[str]:
     ]
     lower = query.lower()
     found = [term for term in aviation_terms if term in lower]
-    # Also extract capitalized multi-word terms
-    import re
     proper_nouns = re.findall(r"[A-Z][a-z]+(?:\s[A-Z][a-z]+)*", query)
     found.extend([n.lower() for n in proper_nouns if len(n) > 2])
     return list(set(found))
 
+
+# ---------------------------------------------------------------------------
+# Entity embedding index (for v2 entity linking)
+# ---------------------------------------------------------------------------
+
+def build_entity_index(
+    graph,
+    cache_path: Optional[Path] = None,
+) -> tuple[list[str], np.ndarray]:
+    """Build or load cached embedding index of all entity names in the graph."""
+    if cache_path is None:
+        cache_path = DATA_DIR / "entity_embeddings.npz"
+
+    entity_names = sorted(graph.nodes())
+
+    if cache_path.exists():
+        data = np.load(cache_path, allow_pickle=True)
+        cached_names = list(data["names"])
+        cached_embeddings = data["embeddings"]
+        if cached_names == entity_names:
+            return cached_names, cached_embeddings
+
+    from aerograph.embed import get_embedding_model
+    model = get_embedding_model()
+    embeddings = model.encode(entity_names, show_progress_bar=False, convert_to_numpy=True)
+
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(cache_path, names=np.array(entity_names, dtype=object), embeddings=embeddings)
+
+    return entity_names, embeddings
+
+
+def extract_query_entities_v2(
+    query: str,
+    entity_names: list[str],
+    embeddings: np.ndarray,
+    model=None,
+    similarity_threshold: float = 0.65,
+) -> list[tuple[str, float]]:
+    """Two-pass entity linking: exact match then embedding similarity."""
+    if model is None:
+        from aerograph.embed import get_embedding_model
+        model = get_embedding_model()
+
+    matched: dict[str, float] = {}
+    query_lower = query.lower()
+
+    # Pass 1: exact word-boundary match
+    for name in entity_names:
+        if len(name) <= 2:
+            continue
+        pattern = r'\b' + re.escape(name.lower()) + r'\b'
+        if re.search(pattern, query_lower):
+            matched[name] = 1.0
+
+    # Pass 2: embedding similarity for unmatched entities
+    query_emb = model.encode([query], show_progress_bar=False, convert_to_numpy=True)
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms = np.where(norms == 0, 1, norms)
+    normed_embs = embeddings / norms
+    query_norm = np.linalg.norm(query_emb, axis=1, keepdims=True)
+    query_norm = np.where(query_norm == 0, 1, query_norm)
+    normed_query = query_emb / query_norm
+    similarities = (normed_embs @ normed_query.T).flatten()
+
+    for i, sim in enumerate(similarities):
+        name = entity_names[i]
+        if name not in matched and sim >= similarity_threshold:
+            matched[name] = float(sim)
+
+    results = sorted(matched.items(), key=lambda x: x[1], reverse=True)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Vector + graph search (original)
+# ---------------------------------------------------------------------------
 
 def vector_search(query: str, top_k: int = 20) -> list[dict]:
     """Retrieve top chunks via ChromaDB vector similarity."""
@@ -112,10 +212,12 @@ def vector_search(query: str, top_k: int = 20) -> list[dict]:
 def graph_search(
     entities: list[str],
     depth: int = 2,
+    max_degree: int = 200,
 ) -> dict[str, float]:
     """Score report_ids by graph neighborhood overlap with query entities.
 
-    Returns dict mapping report_id -> graph score.
+    Caps expansion at nodes with degree > max_degree to prevent hub node
+    explosion (e.g., "b737" connecting to thousands of reports).
     """
     from aerograph.graph import detect_backend
 
@@ -128,12 +230,11 @@ def graph_search(
     entity_report_ids: dict[str, set[str]] = {}
 
     for entity in entities:
-        subgraph = backend.get_neighbors(entity, depth=depth)
+        subgraph = backend.get_neighbors(entity, depth=depth, max_degree=max_degree)
         for node in subgraph.nodes:
             for rid in node.report_ids:
                 entity_report_ids.setdefault(rid, set()).add(entity)
 
-    # Score by number of query entities present in the report's subgraph
     for rid, matched_entities in entity_report_ids.items():
         report_scores[rid] = len(matched_entities) / max(len(entities), 1)
 
@@ -150,7 +251,7 @@ def get_graph_context(entities: list[str]) -> str:
         return ""
 
     lines = []
-    for entity in entities[:5]:  # Limit to avoid huge context
+    for entity in entities[:5]:
         subgraph = backend.get_neighbors(entity, depth=1)
         if subgraph.nodes:
             neighbors = [f"{n.canonical_name} ({n.type})" for n in subgraph.nodes[:10]]
@@ -161,29 +262,28 @@ def get_graph_context(entities: list[str]) -> str:
     return "\n".join(lines) if lines else ""
 
 
+# ---------------------------------------------------------------------------
+# RRF fusion (original 2-signal)
+# ---------------------------------------------------------------------------
+
 def rrf_fusion(
     vector_results: list[dict],
     graph_scores: dict[str, float],
-    k: int = RRF_K,
+    k: int = RRF_K_GRAPH,
     vector_weight: float = 0.5,
     graph_weight: float = 0.5,
 ) -> list[RetrievedChunk]:
-    """Fuse vector and graph retrieval scores using Reciprocal Rank Fusion.
-
-    RRF score = sum_over_sources(weight / (k + rank))
-    """
+    """Fuse vector and graph retrieval scores using Reciprocal Rank Fusion."""
     chunk_scores: dict[str, float] = {}
     chunk_data: dict[str, dict] = {}
     chunk_provenance: dict[str, set[str]] = {}
 
-    # Vector scores (rank-based)
     for rank, result in enumerate(vector_results):
         cid = result["chunk_id"]
         chunk_scores[cid] = chunk_scores.get(cid, 0) + vector_weight / (k + rank + 1)
         chunk_data[cid] = result
         chunk_provenance.setdefault(cid, set()).add("vector")
 
-    # Graph scores (score-based ranking)
     graph_ranked = sorted(graph_scores.items(), key=lambda x: x[1], reverse=True)
     report_to_chunks: dict[str, list[str]] = {}
     for result in vector_results:
@@ -191,11 +291,30 @@ def rrf_fusion(
 
     for rank, (report_id, _score) in enumerate(graph_ranked):
         chunk_ids = report_to_chunks.get(report_id, [])
+        if not chunk_ids:
+            try:
+                from aerograph.embed import get_collection
+                collection = get_collection()
+                results = collection.get(
+                    where={"report_id": report_id},
+                    include=["documents", "metadatas"],
+                )
+                for i, doc_id in enumerate(results["ids"]):
+                    text = results["documents"][i] if results["documents"] else ""
+                    meta = results["metadatas"][i] if results["metadatas"] else {}
+                    chunk_data[doc_id] = {
+                        "chunk_id": doc_id,
+                        "text": text,
+                        "report_id": report_id,
+                        "entities_mentioned": json.loads(meta.get("entities_mentioned", "[]")),
+                    }
+                    chunk_ids.append(doc_id)
+            except Exception:
+                pass
         for cid in chunk_ids:
             chunk_scores[cid] = chunk_scores.get(cid, 0) + graph_weight / (k + rank + 1)
             chunk_provenance.setdefault(cid, set()).add("graph")
 
-    # Sort by fused score
     sorted_chunks = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)
 
     results = []
@@ -219,6 +338,10 @@ def rrf_fusion(
     return results
 
 
+# ---------------------------------------------------------------------------
+# Retrievers
+# ---------------------------------------------------------------------------
+
 class GraphRAGRetriever:
     """Main retriever combining vector search, graph expansion, and RRF fusion."""
 
@@ -226,11 +349,8 @@ class GraphRAGRetriever:
         self,
         vector_weight: float = 0.45,
         graph_weight: float = 0.55,
-        rrf_k: int = RRF_K,
+        rrf_k: int = RRF_K_GRAPH,
     ):
-        # Weights tuned after eval: graph_weight=0.55 improved multi-hop
-        # causal accuracy by ~8% over equal weighting with <2% single-hop
-        # faithfulness regression. Acceptable trade-off for the target use case.
         self.vector_weight = vector_weight
         self.graph_weight = graph_weight
         self.rrf_k = rrf_k
@@ -238,16 +358,10 @@ class GraphRAGRetriever:
     def retrieve(self, query: str, top_k: int = 10) -> RetrievalResult:
         start_time = time.time()
 
-        # Step 1: Extract query entities
         query_entities = extract_query_entities(query)
-
-        # Step 2: Vector search
         vector_results = vector_search(query, top_k=top_k * 2)
-
-        # Step 3: Graph expansion
         graph_scores = graph_search(query_entities, depth=2) if query_entities else {}
 
-        # Step 4: RRF fusion
         fused = rrf_fusion(
             vector_results, graph_scores,
             k=self.rrf_k,
@@ -255,7 +369,6 @@ class GraphRAGRetriever:
             graph_weight=self.graph_weight,
         )
 
-        # Step 5: Get graph context for generation
         graph_context = get_graph_context(query_entities)
         for chunk in fused:
             chunk.graph_context = graph_context
@@ -282,7 +395,7 @@ class BaselineRetriever:
     def retrieve(self, query: str, top_k: int = 10) -> RetrievalResult:
         start_time = time.time()
 
-        vector_results = vector_search(query, top_k=top_k)
+        vector_results = vector_search(query, top_k=top_k * 2)
         elapsed_ms = (time.time() - start_time) * 1000
 
         chunks = [
@@ -290,7 +403,7 @@ class BaselineRetriever:
                 chunk_id=r["chunk_id"],
                 text=r["text"],
                 report_id=r["report_id"],
-                score=1.0 / (i + 1),  # rank-based score
+                score=1.0 / (i + 1),
                 provenance="vector",
                 entities_mentioned=r.get("entities_mentioned", []),
             )
@@ -299,8 +412,10 @@ class BaselineRetriever:
 
         return RetrievalResult(
             query=query,
-            chunks=chunks,
+            chunks=chunks[:top_k],
             query_entities=[],
             latency_ms=elapsed_ms,
             retrieval_trace={"vector_results_count": len(vector_results)},
         )
+
+

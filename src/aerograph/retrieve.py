@@ -200,6 +200,88 @@ def extract_query_entities_v2(
 
 
 # ---------------------------------------------------------------------------
+# Synonym / near-duplicate detection via embeddings
+# ---------------------------------------------------------------------------
+
+def detect_synonym_edges(
+    graph,
+    entity_names: list[str],
+    embeddings: np.ndarray,
+    threshold: float = 0.85,
+) -> list[tuple[str, str, float]]:
+    """Find near-duplicate entities by embedding cosine similarity within same type."""
+    type_map: dict[str, list[int]] = {}
+    for i, name in enumerate(entity_names):
+        ntype = graph.nodes[name].get("type", "unknown") if graph.has_node(name) else "unknown"
+        type_map.setdefault(ntype, []).append(i)
+
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms = np.where(norms == 0, 1, norms)
+    normed = embeddings / norms
+
+    pairs = []
+    for ntype, indices in type_map.items():
+        if len(indices) < 2:
+            continue
+        sub = normed[indices]
+        sims = sub @ sub.T
+        for a_pos in range(len(indices)):
+            for b_pos in range(a_pos + 1, len(indices)):
+                sim = float(sims[a_pos, b_pos])
+                if sim >= threshold:
+                    pairs.append((entity_names[indices[a_pos]], entity_names[indices[b_pos]], sim))
+
+    pairs.sort(key=lambda x: x[2], reverse=True)
+    return pairs
+
+
+# ---------------------------------------------------------------------------
+# Personalized PageRank search
+# ---------------------------------------------------------------------------
+
+def ppr_search(
+    graph,
+    seed_entities: list[tuple[str, float]],
+    top_k: int = 20,
+    alpha: float = 0.15,
+) -> list[dict]:
+    """Personalized PageRank over the graph, seeded on query entities."""
+    import networkx as nx
+
+    undirected = graph.to_undirected() if graph.is_directed() else graph
+
+    personalization = {}
+    seed_names = set()
+    for name, weight in seed_entities:
+        if undirected.has_node(name):
+            personalization[name] = weight
+            seed_names.add(name)
+
+    if not personalization:
+        return []
+
+    try:
+        ppr = nx.pagerank(undirected, alpha=alpha, personalization=personalization, max_iter=100)
+    except Exception:
+        return []
+
+    scored = []
+    for node, score in ppr.items():
+        if node in seed_names:
+            continue
+        data = graph.nodes[node] if graph.has_node(node) else {}
+        scored.append({
+            "node_name": node,
+            "ppr_score": score,
+            "report_ids": data.get("report_ids", []),
+            "type": data.get("type", "unknown"),
+        })
+
+    scored.sort(key=lambda x: x["ppr_score"], reverse=True)
+    return scored[:top_k]
+
+
+# ---------------------------------------------------------------------------
 # Vector + graph search (original)
 # ---------------------------------------------------------------------------
 

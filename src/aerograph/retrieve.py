@@ -498,6 +498,83 @@ _GLOBAL_PATTERNS = [
 _GLOBAL_RE = re.compile("|".join(_GLOBAL_PATTERNS), re.IGNORECASE)
 
 
+def is_global_query(query: str) -> bool:
+    """Detect whether a query asks for corpus-level aggregation."""
+    return bool(_GLOBAL_RE.search(query))
+
+
+def global_search(
+    query: str,
+    community_summaries: dict[str, dict],
+    top_k: int = 5,
+) -> list[dict]:
+    """BM25-style scoring of query against community summary texts."""
+    if not community_summaries:
+        return []
+
+    query_tokens = set(re.findall(r"[a-z0-9]+", query.lower()))
+    if not query_tokens:
+        return []
+
+    scored = []
+    for comm_id, info in community_summaries.items():
+        summary = info.get("summary", "")
+        summary_tokens = re.findall(r"[a-z0-9]+", summary.lower())
+        if not summary_tokens:
+            continue
+
+        tf_counts = Counter(summary_tokens)
+        doc_len = len(summary_tokens)
+        score = 0.0
+        for qt in query_tokens:
+            tf = tf_counts.get(qt, 0)
+            if tf > 0:
+                score += (1 + math.log(1 + tf)) / (1 + math.log(1 + doc_len))
+
+        scored.append({
+            "community_id": comm_id,
+            "score": score,
+            "summary": summary,
+            "report_ids": info.get("report_ids", []),
+            "node_count": info.get("node_count", 0),
+        })
+
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored[:top_k]
+
+
+# ---------------------------------------------------------------------------
+# Query routing
+# ---------------------------------------------------------------------------
+
+def route_query(query: str) -> str:
+    """Auto-select retriever type based on query characteristics."""
+    if is_global_query(query):
+        return "hipporag"
+
+    causal_indicators = [
+        r"caus(e|ed|es|al|ing)",
+        r"led?\s+to",
+        r"result(ed|s|ing)?\s+in",
+        r"chain",
+        r"because",
+        r"contribut",
+        r"factor",
+        r"why\s+did",
+        r"what\s+caused",
+        r"how\s+did\s+.+\s+lead",
+    ]
+    causal_re = re.compile("|".join(causal_indicators), re.IGNORECASE)
+    if causal_re.search(query):
+        return "graphrag"
+
+    comparative_re = re.compile(r"\bcompar|vs\.?\b|\bversus\b|\bdifference\b", re.IGNORECASE)
+    if comparative_re.search(query):
+        return "graphrag"
+
+    return "graphrag"
+
+
 # ---------------------------------------------------------------------------
 # Retrievers
 # ---------------------------------------------------------------------------

@@ -700,3 +700,327 @@ class BM25Retriever:
         )
 
 
+class GraphOnlyRetriever:
+    """Graph-only retriever: neighborhood expansion without vector similarity."""
+
+    def retrieve(self, query: str, top_k: int = 10) -> RetrievalResult:
+        start_time = time.time()
+
+        query_entities = extract_query_entities(query)
+
+        if not query_entities:
+            elapsed_ms = (time.time() - start_time) * 1000
+            return RetrievalResult(
+                query=query,
+                chunks=[],
+                query_entities=query_entities,
+                latency_ms=elapsed_ms,
+                retrieval_trace={"graph_report_ids": 0},
+            )
+
+        graph_scores = graph_search(query_entities, depth=2)
+        ranked_reports = sorted(graph_scores.items(), key=lambda x: x[1], reverse=True)
+
+        from aerograph.embed import get_collection
+        collection = get_collection()
+
+        chunks = []
+        for report_id, g_score in ranked_reports:
+            if len(chunks) >= top_k:
+                break
+            try:
+                results = collection.get(
+                    where={"report_id": report_id},
+                    include=["documents", "metadatas"],
+                )
+            except Exception:
+                continue
+
+            for i, doc_id in enumerate(results["ids"]):
+                if len(chunks) >= top_k:
+                    break
+                text = results["documents"][i] if results["documents"] else ""
+                meta = results["metadatas"][i] if results["metadatas"] else {}
+                chunks.append(RetrievedChunk(
+                    chunk_id=doc_id,
+                    text=text,
+                    report_id=report_id,
+                    score=g_score,
+                    provenance="graph",
+                    entities_mentioned=json.loads(meta["entities_mentioned"])
+                    if meta.get("entities_mentioned") else [],
+                ))
+
+        elapsed_ms = (time.time() - start_time) * 1000
+
+        graph_context = get_graph_context(query_entities)
+        for chunk in chunks:
+            chunk.graph_context = graph_context
+
+        return RetrievalResult(
+            query=query,
+            chunks=chunks,
+            query_entities=query_entities,
+            latency_ms=elapsed_ms,
+            retrieval_trace={
+                "graph_report_ids": len(graph_scores),
+                "query_entities": query_entities,
+            },
+        )
+
+
+class PPROnlyRetriever:
+    """PPR-only retriever: Personalized PageRank without vector similarity."""
+
+    def __init__(self, alpha: float = 0.15, ppr_top_k: int = 20):
+        self.alpha = alpha
+        self.ppr_top_k = ppr_top_k
+        self._graph = None
+        self._entity_names: list[str] = []
+        self._embeddings: Optional[np.ndarray] = None
+        self._model = None
+
+    def _ensure_graph(self):
+        if self._graph is not None:
+            return
+        from aerograph.graph import load_graph
+        self._graph = load_graph()
+        self._entity_names, self._embeddings = build_entity_index(self._graph)
+        from aerograph.embed import get_embedding_model
+        self._model = get_embedding_model()
+
+    def retrieve(self, query: str, top_k: int = 10) -> RetrievalResult:
+        start_time = time.time()
+        self._ensure_graph()
+
+        linked = extract_query_entities_v2(
+            query, self._entity_names, self._embeddings, self._model,
+        )
+        seed_entities = [(name, score) for name, score in linked[:10]]
+        query_entity_names = [name for name, _ in seed_entities]
+
+        ppr_results = ppr_search(
+            self._graph, seed_entities,
+            top_k=self.ppr_top_k, alpha=self.alpha,
+        )
+
+        report_ids_scored: dict[str, float] = {}
+        for node_info in ppr_results:
+            for rid in node_info["report_ids"]:
+                report_ids_scored[rid] = max(
+                    report_ids_scored.get(rid, 0),
+                    node_info["ppr_score"],
+                )
+
+        ranked_reports = sorted(report_ids_scored.items(), key=lambda x: x[1], reverse=True)
+
+        from aerograph.embed import get_collection
+        collection = get_collection()
+
+        chunks = []
+        for report_id, ppr_score in ranked_reports:
+            if len(chunks) >= top_k:
+                break
+            try:
+                results = collection.get(
+                    where={"report_id": report_id},
+                    include=["documents", "metadatas"],
+                )
+            except Exception:
+                continue
+            for i, doc_id in enumerate(results["ids"]):
+                if len(chunks) >= top_k:
+                    break
+                text = results["documents"][i] if results["documents"] else ""
+                meta = results["metadatas"][i] if results["metadatas"] else {}
+                chunks.append(RetrievedChunk(
+                    chunk_id=doc_id,
+                    text=text,
+                    report_id=report_id,
+                    score=ppr_score,
+                    provenance="ppr",
+                    entities_mentioned=json.loads(meta["entities_mentioned"])
+                    if meta.get("entities_mentioned") else [],
+                ))
+
+        elapsed_ms = (time.time() - start_time) * 1000
+
+        return RetrievalResult(
+            query=query,
+            chunks=chunks,
+            query_entities=query_entity_names,
+            latency_ms=elapsed_ms,
+            retrieval_trace={
+                "ppr_nodes": len(ppr_results),
+                "ppr_reports": len(report_ids_scored),
+                "linked_entities": len(seed_entities),
+            },
+        )
+
+
+class HippoRAGRetriever:
+    """4-way fusion retriever: vector + BM25 + PPR + community."""
+
+    SIGNAL_WEIGHTS = {
+        "ppr": 1.0,
+        "community": 1.0,
+        "vector": 1.0,
+        "bm25": 1.0,
+    }
+
+    def __init__(self, config: Optional[RetrievalConfig] = None):
+        self.config = config or RetrievalConfig()
+        self._bm25 = BM25Retriever()
+        self._graph = None
+        self._entity_names: list[str] = []
+        self._embeddings: Optional[np.ndarray] = None
+        self._model = None
+        self._community_summaries: Optional[dict] = None
+
+    def _ensure_graph(self):
+        if self._graph is not None:
+            return
+        from aerograph.graph import load_graph
+        self._graph = load_graph()
+        self._entity_names, self._embeddings = build_entity_index(self._graph)
+        from aerograph.embed import get_embedding_model
+        self._model = get_embedding_model()
+
+    def _load_community_summaries(self) -> dict:
+        if self._community_summaries is not None:
+            return self._community_summaries
+        path = DATA_DIR / "community_summaries.json"
+        if path.exists():
+            with open(path) as f:
+                self._community_summaries = json.load(f)
+        else:
+            self._community_summaries = {}
+        return self._community_summaries
+
+    def retrieve(self, query: str, top_k: int = 10) -> RetrievalResult:
+        start_time = time.time()
+        self._ensure_graph()
+
+        linked = extract_query_entities_v2(
+            query, self._entity_names, self._embeddings, self._model,
+        )
+        seed_entities = [(name, score) for name, score in linked[:10]]
+        query_entity_names = [name for name, _ in seed_entities]
+
+        signal_lists: list[tuple[str, list[dict]]] = []
+
+        if self.config.use_vector:
+            vec_results = vector_search(query, top_k=top_k * 2)
+            signal_lists.append(("vector", vec_results))
+
+        if self.config.use_bm25:
+            bm25_result = self._bm25.retrieve(query, top_k=top_k * 2)
+            bm25_dicts = [
+                {
+                    "chunk_id": c.chunk_id,
+                    "text": c.text,
+                    "report_id": c.report_id,
+                    "entities_mentioned": c.entities_mentioned,
+                }
+                for c in bm25_result.chunks
+            ]
+            signal_lists.append(("bm25", bm25_dicts))
+
+        if self.config.use_ppr:
+            ppr_results = ppr_search(
+                self._graph, seed_entities,
+                top_k=self.config.ppr_top_k, alpha=self.config.ppr_alpha,
+            )
+            ppr_report_ids: dict[str, float] = {}
+            for node_info in ppr_results:
+                for rid in node_info["report_ids"]:
+                    ppr_report_ids[rid] = max(
+                        ppr_report_ids.get(rid, 0),
+                        node_info["ppr_score"],
+                    )
+            ranked_ppr = sorted(ppr_report_ids.items(), key=lambda x: x[1], reverse=True)
+
+            ppr_chunks: list[dict] = []
+            try:
+                from aerograph.embed import get_collection
+                collection = get_collection()
+                for report_id, _ in ranked_ppr[:top_k]:
+                    try:
+                        results = collection.get(
+                            where={"report_id": report_id},
+                            include=["documents", "metadatas"],
+                        )
+                    except Exception:
+                        continue
+                    for i, doc_id in enumerate(results["ids"]):
+                        text = results["documents"][i] if results["documents"] else ""
+                        meta = results["metadatas"][i] if results["metadatas"] else {}
+                        ppr_chunks.append({
+                            "chunk_id": doc_id,
+                            "text": text,
+                            "report_id": report_id,
+                            "entities_mentioned": json.loads(meta["entities_mentioned"])
+                            if meta.get("entities_mentioned") else [],
+                        })
+            except Exception:
+                pass
+            if ppr_chunks:
+                signal_lists.append(("ppr", ppr_chunks))
+
+        if self.config.use_community:
+            summaries = self._load_community_summaries()
+            if summaries:
+                comm_results = global_search(query, summaries, top_k=self.config.community_top_k)
+                comm_chunks: list[dict] = []
+                try:
+                    from aerograph.embed import get_collection
+                    collection = get_collection()
+                    for cr in comm_results:
+                        for rid in cr.get("report_ids", [])[:3]:
+                            try:
+                                results = collection.get(
+                                    where={"report_id": rid},
+                                    include=["documents", "metadatas"],
+                                )
+                            except Exception:
+                                continue
+                            for i, doc_id in enumerate(results["ids"]):
+                                text = results["documents"][i] if results["documents"] else ""
+                                meta = results["metadatas"][i] if results["metadatas"] else {}
+                                comm_chunks.append({
+                                    "chunk_id": doc_id,
+                                    "text": text,
+                                    "report_id": rid,
+                                    "entities_mentioned": json.loads(meta["entities_mentioned"])
+                                    if meta.get("entities_mentioned") else [],
+                                })
+                except Exception:
+                    pass
+                if comm_chunks:
+                    signal_lists.append(("community", comm_chunks))
+
+        fused = multi_rrf_fusion(
+            signal_lists,
+            k=self.config.rrf_k,
+            signal_weights=self.SIGNAL_WEIGHTS,
+            top_k=self.config.final_top_k if self.config.final_top_k > 0 else top_k,
+        )
+
+        graph_context = get_graph_context(query_entity_names)
+        for chunk in fused:
+            chunk.graph_context = graph_context
+
+        elapsed_ms = (time.time() - start_time) * 1000
+
+        return RetrievalResult(
+            query=query,
+            chunks=fused,
+            query_entities=query_entity_names,
+            latency_ms=elapsed_ms,
+            retrieval_trace={
+                "signals": [name for name, _ in signal_lists],
+                "signal_counts": {name: len(lst) for name, lst in signal_lists},
+                "linked_entities": len(seed_entities),
+                "fused_count": len(fused),
+            },
+        )

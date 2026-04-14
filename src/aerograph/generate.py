@@ -195,7 +195,7 @@ def _extract_acns(text: str, retrieval_result) -> list[str]:
     # Also include all ACNs from retrieved chunks
     all_acns = {c.report_id for c in retrieval_result.chunks}
     # Return intersection + any directly mentioned
-    return sorted(mentioned | (all_acns & mentioned) or all_acns)
+    return sorted(mentioned | (all_acns & mentioned) | all_acns)
 
 
 def _provenance_summary(retrieval_result) -> str:

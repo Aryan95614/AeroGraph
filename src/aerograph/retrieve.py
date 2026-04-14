@@ -32,8 +32,9 @@ DATA_DIR = Path(os.environ.get("AEROGRAPH_DATA_DIR", Path(__file__).parent.paren
 
 # RRF constant — standard value per Cormack et al. 2009
 RRF_K = 60
-# Graph-specific RRF constant. Using standard k=60 for initial eval.
-RRF_K_GRAPH = 60
+# Tuned k for graph-heavy fusion. Lower k gives more weight to top ranks,
+# which helps when graph signals are sparse but precise.
+RRF_K_GRAPH = 45
 
 
 @dataclass

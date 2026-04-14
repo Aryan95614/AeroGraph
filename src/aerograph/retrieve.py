@@ -940,8 +940,8 @@ class HippoRAGRetriever:
     """4-way fusion retriever: vector + BM25 + PPR + community."""
 
     SIGNAL_WEIGHTS = {
-        "ppr": 1.0,
-        "community": 1.0,
+        "ppr": 1.5,
+        "community": 1.3,
         "vector": 1.0,
         "bm25": 1.0,
     }

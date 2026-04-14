@@ -333,6 +333,46 @@ def evaluate_reference_similarity(answer: str, reference: str) -> float:
     return 2 * precision * recall / (precision + recall)
 
 
+def evaluate_pairwise(query: str, context_a: list[str], context_b: list[str]) -> str:
+    """Blind pairwise comparison: which context better supports answering?"""
+    ctx_a = "\n---\n".join(context_a[:5])
+    ctx_b = "\n---\n".join(context_b[:5])
+
+    prompt = f"""You are comparing two sets of retrieved context passages for answering an aviation safety question. You do NOT know which retrieval system produced which set.
+
+Question: {query}
+
+=== Context Set A ===
+{ctx_a}
+
+=== Context Set B ===
+{ctx_b}
+
+Which context set better supports answering the question? Consider:
+- Relevance of passages to the question
+- Coverage of key entities and causal factors
+- Presence of specific evidence (report numbers, aircraft types, phases)
+- Absence of irrelevant or misleading passages
+
+Answer with exactly one of: A, B, or TIE
+Your answer:"""
+
+    response = _call_judge(prompt)
+    response_upper = response.strip().upper()
+    if "TIE" in response_upper:
+        return "tie"
+    if response_upper.startswith("A"):
+        return "A"
+    if response_upper.startswith("B"):
+        return "B"
+    # Parse from longer response
+    for line in response_upper.split("\n"):
+        line = line.strip()
+        if line in ("A", "B", "TIE"):
+            return line.lower() if line == "TIE" else line
+    return "tie"
+
+
 def compute_query_relevance(query: str, graph_backend=None) -> set[str]:
     """Compute relevant report_ids for a query using graph structure."""
     from aerograph.retrieve import _keyword_entity_extract
@@ -712,6 +752,56 @@ def run_evaluation(
     return metrics
 
 
+def _run_pairwise_comparisons(
+    queries: list[EvalQuery],
+    results: list[EvalResult],
+    system_names: list[str],
+) -> dict:
+    """Run pairwise blind comparisons between retrieval systems."""
+    if len(system_names) < 2:
+        return {}
+
+    # Build lookup: (query_id, system) -> result
+    result_map: dict[tuple[str, str], EvalResult] = {}
+    for r in results:
+        result_map[(r.query_id, r.system)] = r
+
+    pairs = []
+    for i in range(len(system_names)):
+        for j in range(i + 1, len(system_names)):
+            pairs.append((system_names[i], system_names[j]))
+
+    pairwise_results: dict[str, dict[str, int]] = {}
+    sample_queries = queries[:10]  # Limit pairwise to first 10 queries
+
+    for sys_a, sys_b in pairs:
+        pair_key = f"{sys_a}_vs_{sys_b}"
+        wins = {"A": 0, "B": 0, "tie": 0}
+
+        for query in sample_queries:
+            r_a = result_map.get((query.id, sys_a))
+            r_b = result_map.get((query.id, sys_b))
+            if r_a is None or r_b is None:
+                continue
+
+            ctx_a = [r_a.answer]
+            ctx_b = [r_b.answer]
+
+            try:
+                verdict = evaluate_pairwise(query.question, ctx_a, ctx_b)
+                wins[verdict] = wins.get(verdict, 0) + 1
+            except Exception:
+                wins["tie"] += 1
+
+        pairwise_results[pair_key] = wins
+
+    return pairwise_results
+
+
+# ---------------------------------------------------------------------------
+# Metrics aggregation
+# ---------------------------------------------------------------------------
+
 def _aggregate_metrics(results: list[EvalResult]) -> dict:
     """Aggregate per-query metrics into summary statistics with variance."""
     systems: dict[str, list[EvalResult]] = {}
@@ -950,3 +1040,81 @@ def _plot_graph_stats(plt, np) -> None:
         print(f"Could not generate graph stats figure: {e}")
 
 
+def _plot_pairwise_comparison(metrics: dict, plt, np) -> None:
+    """Heatmap-style figure showing pairwise win rates."""
+    pairwise = metrics.get("pairwise", {})
+    if not pairwise:
+        return
+
+    try:
+        # Extract unique system names from pair keys
+        system_set: set[str] = set()
+        for pair_key in pairwise:
+            parts = pair_key.split("_vs_")
+            if len(parts) == 2:
+                system_set.update(parts)
+
+        system_labels = sorted(system_set)
+        n = len(system_labels)
+        if n < 2:
+            return
+
+        sys_idx = {s: i for i, s in enumerate(system_labels)}
+        win_matrix = np.zeros((n, n))
+
+        for pair_key, wins in pairwise.items():
+            parts = pair_key.split("_vs_")
+            if len(parts) != 2:
+                continue
+            a, b = parts
+            if a not in sys_idx or b not in sys_idx:
+                continue
+            ia, ib = sys_idx[a], sys_idx[b]
+            total = wins.get("A", 0) + wins.get("B", 0) + wins.get("tie", 0)
+            if total > 0:
+                win_matrix[ia][ib] = wins.get("A", 0) / total
+                win_matrix[ib][ia] = wins.get("B", 0) / total
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        im = ax.imshow(win_matrix, cmap="RdYlGn", vmin=0, vmax=1, aspect="auto")
+
+        ax.set_xticks(range(n))
+        ax.set_yticks(range(n))
+        short_labels = [s.replace("_", "\n") for s in system_labels]
+        ax.set_xticklabels(short_labels, fontsize=9)
+        ax.set_yticklabels(short_labels, fontsize=9)
+
+        for i in range(n):
+            for j in range(n):
+                if i != j:
+                    ax.text(j, i, f"{win_matrix[i][j]:.2f}",
+                            ha="center", va="center", fontsize=9)
+
+        ax.set_title("Pairwise Win Rate (Row beats Column)")
+        fig.colorbar(im, ax=ax, label="Win Rate")
+
+        plt.tight_layout()
+        plt.savefig(FIGURES_DIR / "pairwise_comparison.png", dpi=300, bbox_inches="tight")
+        plt.close()
+        print(f"Saved {FIGURES_DIR / 'pairwise_comparison.png'}")
+
+    except Exception as e:
+        print(f"Could not generate pairwise comparison figure: {e}")
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    if "--figures-only" in sys.argv:
+        results_path = RESULTS_DIR / "eval_results.json"
+        if results_path.exists():
+            with open(results_path) as f:
+                data = json.load(f)
+            results = [EvalResult(**r) for r in data["results"]]
+            generate_figures(data["metrics"], results)
+        else:
+            print("No eval results found. Run full evaluation first.")
+    else:
+        run_evaluation()

@@ -422,6 +422,37 @@ def _keyword_relevance(question: str, answer: str) -> float:
 # Checkpoint persistence
 # ---------------------------------------------------------------------------
 
+def _load_checkpoint(path: Path) -> dict:
+    """Load evaluation checkpoint, returns empty dict if missing."""
+    if path.exists():
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return {"results": [], "completed_query_ids": []}
+    return {"results": [], "completed_query_ids": []}
+
+
+def _save_checkpoint(path: Path, data: dict) -> None:
+    """Atomic save: write to tmp file then rename."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w") as f:
+            json.dump(data, f, indent=2)
+        Path(tmp_path).rename(path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
+# ---------------------------------------------------------------------------
+# Query generation
+# ---------------------------------------------------------------------------
+
 def load_eval_queries(path: Optional[Path] = None) -> list[EvalQuery]:
     """Load evaluation queries from JSONL file."""
     if path is None:

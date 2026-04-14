@@ -152,6 +152,118 @@ def ndcg_at_k(retrieved: list[str], relevant: set | list, k: int = 10) -> float:
 # Rubric score parsing
 # ---------------------------------------------------------------------------
 
+def _parse_rubric_score(response: str) -> float:
+    """Extract a 0-1 score from LLM judge output."""
+    # Primary: look for "SCORE: X.XX"
+    m = re.search(r"SCORE:\s*([\d.]+)", response, re.IGNORECASE)
+    if m:
+        return min(1.0, max(0.0, float(m.group(1))))
+    # Fallback: last float in 0-1 range
+    floats = re.findall(r"\b(0?\.\d+|1\.0{0,2}|0|1)\b", response)
+    if floats:
+        return min(1.0, max(0.0, float(floats[-1])))
+    return 0.0
+
+
+# ---------------------------------------------------------------------------
+# LLM judge infrastructure
+# ---------------------------------------------------------------------------
+
+def _call_judge(prompt: str) -> str:
+    """Call LLM judge: try Ollama (llama3.1:8b) first, fall back to Claude."""
+    # Try Ollama first
+    try:
+        import httpx
+        resp = httpx.post(
+            "http://localhost:11434/api/generate",
+            json={"model": "llama3.1:8b", "prompt": prompt, "stream": False},
+            timeout=60.0,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            return data.get("response", "")
+    except Exception:
+        pass
+
+    # Fall back to Claude
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        return ""
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=400,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.content[0].text.strip()
+    except Exception:
+        return ""
+
+
+# ---------------------------------------------------------------------------
+# Evaluation functions
+# ---------------------------------------------------------------------------
+
+def evaluate_faithfulness(answer: str, context_chunks: list[str]) -> float:
+    """Score faithfulness via 4-criterion binary rubric."""
+    context = "\n---\n".join(context_chunks[:5])
+    prompt = f"""You are an evaluation judge. Rate the faithfulness of an answer to ONLY the provided context passages about aviation safety incidents.
+
+RUBRIC — score each criterion 0 or 1:
+1. GROUNDING: Every factual claim in the answer can be traced to a specific passage. If the answer makes ANY claim not found in the passages, score 0.
+2. SPECIFICITY: The answer cites concrete details from the context (report numbers, aircraft types, flight phases, specific events) rather than making generic statements. Score 0 if the answer is vague or generic.
+3. COMPLETENESS: The answer uses relevant information from the context without ignoring contradictory or qualifying evidence present in the passages.
+4. NO_HALLUCINATION: The answer does not invent facts, statistics, percentages, or causal relationships not explicitly stated in the context. Score 0 if ANY fabricated detail is present.
+
+Context passages:
+{context}
+
+Answer to evaluate:
+{answer}
+
+Score each criterion, then compute the final score as the average.
+GROUNDING: 0 or 1
+SPECIFICITY: 0 or 1
+COMPLETENESS: 0 or 1
+NO_HALLUCINATION: 0 or 1
+SCORE: (sum / 4, as a decimal like 0.75 or 0.25)"""
+
+    response = _call_judge(prompt)
+    if response:
+        return _parse_rubric_score(response)
+    return _keyword_faithfulness(answer, context_chunks)
+
+
+def evaluate_relevance(question: str, answer: str) -> float:
+    """Score answer relevance via 4-criterion rubric."""
+    prompt = f"""You are an evaluation judge. Rate how well this answer addresses the question about aviation safety.
+
+RUBRIC — score each criterion 0 or 1:
+1. DIRECTNESS: The answer directly addresses the specific question asked, not a related but different question. Score 0 if the answer talks around the topic without answering what was asked.
+2. DEPTH: The answer provides substantive analysis, not just a surface-level or one-sentence response. For causal questions, it must trace at least one cause-effect chain. For comparative questions, it must compare at least two items.
+3. STRUCTURE: The answer is organized logically — causal chains are ordered temporally, comparisons are parallel, lists have a clear organizing principle.
+4. EVIDENCE_USE: The answer references specific evidence (incidents, reports, data points) rather than making unsupported assertions. Score 0 if the answer reads like generic knowledge rather than evidence-based analysis.
+
+Question: {question}
+
+Answer to evaluate:
+{answer}
+
+Score each criterion, then compute the final score as the average.
+DIRECTNESS: 0 or 1
+DEPTH: 0 or 1
+STRUCTURE: 0 or 1
+EVIDENCE_USE: 0 or 1
+SCORE: (sum / 4, as a decimal like 0.75 or 0.25)"""
+
+    response = _call_judge(prompt)
+    if response:
+        return _parse_rubric_score(response)
+    return _keyword_relevance(question, answer)
+
+
 def evaluate_context_precision(
     retrieved_ids: list[str], relevant_ids: list[str]
 ) -> float:

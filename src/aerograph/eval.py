@@ -304,6 +304,98 @@ def evaluate_causal_chain(answer: str, query_type: str) -> float:
     return min(1.0, score / 4.0)
 
 
+def evaluate_reference_similarity(answer: str, reference: str) -> float:
+    """Token-level F1 (ROUGE-L style) against reference answer."""
+    if not reference or not reference.strip():
+        return 0.0
+
+    answer_tokens = answer.lower().split()
+    ref_tokens = reference.lower().split()
+
+    if not answer_tokens or not ref_tokens:
+        return 0.0
+
+    # LCS length via DP
+    m, n = len(ref_tokens), len(answer_tokens)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if ref_tokens[i - 1] == answer_tokens[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1] + 1
+            else:
+                dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
+    lcs_len = dp[m][n]
+
+    precision = lcs_len / n if n > 0 else 0
+    recall = lcs_len / m if m > 0 else 0
+    if precision + recall == 0:
+        return 0.0
+    return 2 * precision * recall / (precision + recall)
+
+
+def compute_query_relevance(query: str, graph_backend=None) -> set[str]:
+    """Compute relevant report_ids for a query using graph structure."""
+    from aerograph.retrieve import _keyword_entity_extract
+
+    if graph_backend is None:
+        try:
+            from aerograph.graph import detect_backend
+            graph_backend = detect_backend()
+        except Exception:
+            return set()
+
+    entities = _keyword_entity_extract(query)
+    if not entities:
+        return set()
+
+    entity_report_sets: list[set[str]] = []
+
+    for entity in entities:
+        node = graph_backend.get_node(entity)
+        if node is None:
+            continue
+
+        # Skip hub nodes with too many reports
+        if len(node.report_ids) > 500:
+            continue
+
+        report_ids = set(node.report_ids)
+
+        # Expand 1-hop neighbors
+        subgraph = graph_backend.get_neighbors(entity, depth=1, max_degree=200)
+        for neighbor_node in subgraph.nodes:
+            if len(neighbor_node.report_ids) <= 500:
+                report_ids.update(neighbor_node.report_ids)
+
+        entity_report_sets.append(report_ids)
+
+    if not entity_report_sets:
+        return set()
+
+    # Multi-entity intersection when 2+ entities match
+    if len(entity_report_sets) >= 2:
+        relevant = entity_report_sets[0]
+        for s in entity_report_sets[1:]:
+            relevant = relevant & s
+        # Fall back to union if intersection is too small
+        if len(relevant) < 5:
+            relevant = set()
+            for s in entity_report_sets:
+                relevant.update(s)
+    else:
+        relevant = entity_report_sets[0]
+
+    # Cap at 100 reports
+    if len(relevant) > 100:
+        relevant = set(list(relevant)[:100])
+
+    return relevant
+
+
+# ---------------------------------------------------------------------------
+# Keyword fallbacks (when no LLM judge available)
+# ---------------------------------------------------------------------------
+
 def _keyword_faithfulness(answer: str, context_chunks: list[str]) -> float:
     """Fallback faithfulness via keyword overlap."""
     context_words = set()

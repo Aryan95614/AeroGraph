@@ -1,0 +1,14 @@
+{
+  "completed_queries": 50,
+  "total_queries": 50,
+  "timestamp": "2026-04-17T13:45:00",
+  "status": "completed",
+  "systems_evaluated": [
+    "hybrid_4way",
+    "graphrag",
+    "baseline",
+    "bm25",
+    "ppr_only",
+    "graph_only"
+  ]
+}

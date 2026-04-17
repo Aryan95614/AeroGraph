@@ -1,29 +1,27 @@
 # Results Table (LaTeX-Ready)
 
-## Main Results
+## Main Results — 4-System Ablation
 
 ```latex
 \begin{table}[h]
 \centering
-\caption{Evaluation results: GraphRAG vs.\ vector-only baseline on 50-query benchmark.
-Scores are averages across all queries of each type. Faithfulness and relevance
-are scored by Claude as judge (0--1 scale). Causal chain accuracy is scored only
-for multi-hop queries.}
+\caption{Ablation study: four retrieval systems on 50-query benchmark.
+Scores are means $\pm$ std across all queries. Faithfulness and relevance
+scored by Claude-as-judge (0--1). Causal chain accuracy scored only for
+multi-hop queries. Reference similarity uses ROUGE-L F1.}
 \label{tab:main-results}
-\begin{tabular}{lcccccc}
+\begin{tabular}{lccccccc}
 \toprule
-\textbf{System} & \textbf{Faith.} & \textbf{Rel.} & \textbf{Ctx. Prec.} & \textbf{Ctx. Rec.} & \textbf{Causal Acc.} & \textbf{Latency (ms)} \\
+\textbf{System} & \textbf{Faith.} & \textbf{Rel.} & \textbf{Ctx P.} & \textbf{Ctx R.} & \textbf{Causal} & \textbf{Ref. Sim.} & \textbf{Lat. (s)} \\
 \midrule
-GraphRAG    & --   & --   & --   & --   & --   & --   \\
-Baseline    & --   & --   & --   & --   & --   & --   \\
+GraphRAG         & $0.39 \pm 0.34$ & $0.85 \pm 0.17$ & -- & 1.00 & 0.55 & -- & 19.8 \\
+Vector-Only      & $0.31 \pm 0.30$ & $0.85 \pm 0.18$ & -- & 1.00 & 0.55 & -- & 18.5 \\
+BM25             & $0.23 \pm 0.24$ & $0.78 \pm 0.23$ & -- & 1.00 & 0.56 & -- & 17.0 \\
+Graph-Only       & $0.53 \pm 0.43$ & $0.60 \pm 0.29$ & -- & 1.00 & 0.54 & -- & 14.0 \\
 \bottomrule
 \end{tabular}
 \end{table}
 ```
-
-**Note:** Values marked `--` are placeholders to be filled after running
-`make eval`. The evaluation pipeline writes actual numbers to
-`paper/results/eval_results.json`.
 
 ## Per Query Type Breakdown
 
@@ -36,14 +34,20 @@ Baseline    & --   & --   & --   & --   & --   & --   \\
 \toprule
 \textbf{Query Type} & \textbf{System} & \textbf{Faith.} & \textbf{Rel.} & \textbf{n} \\
 \midrule
-\multirow{2}{*}{Single-Hop}  & GraphRAG & -- & -- & 20 \\
-                              & Baseline & -- & -- & 20 \\
+\multirow{4}{*}{Single-Hop}    & GraphRAG         & 0.37 & 0.82 & 20 \\
+                               & Vector-Only      & 0.30 & 0.86 & 20 \\
+                               & BM25             & 0.21 & 0.73 & 20 \\
+                               & Graph-Only       & 0.37 & 0.69 & 20 \\
 \midrule
-\multirow{2}{*}{Multi-Hop}   & GraphRAG & -- & -- & 20 \\
-                              & Baseline & -- & -- & 20 \\
+\multirow{4}{*}{Multi-Hop}     & GraphRAG         & 0.30 & 0.91 & 20 \\
+                               & Vector-Only      & 0.30 & 0.90 & 20 \\
+                               & BM25             & 0.21 & 0.82 & 20 \\
+                               & Graph-Only       & 0.71 & 0.52 & 20 \\
 \midrule
-\multirow{2}{*}{Comparative} & GraphRAG & -- & -- & 10 \\
-                              & Baseline & -- & -- & 10 \\
+\multirow{4}{*}{Comparative}   & GraphRAG         & 0.61 & 0.81 & 10 \\
+                               & Vector-Only      & 0.34 & 0.72 & 10 \\
+                               & BM25             & 0.31 & 0.76 & 10 \\
+                               & Graph-Only       & 0.48 & 0.59 & 10 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -53,10 +57,13 @@ Baseline    & --   & --   & --   & --   & --   & --   \\
 
 | Metric | Value |
 |--------|-------|
-| Total nodes | -- |
-| Total edges | -- |
-| Entity types | -- |
-| Reports indexed | -- |
-| Chunks indexed | -- |
+| Total nodes | 29244 |
+| Total edges | 43505 |
+| Entity types | 10 |
+| Edge types | 8 |
+| Reports indexed | 2460 |
+| Chunks indexed | 4710 |
+| Mean entities/report | 21.5 |
+| Mean relations/report | 19.6 |
 
-Values populated by `make paper` from runtime graph statistics.
+*Auto-populated by `scripts/populate_paper.py` from evaluation results.*

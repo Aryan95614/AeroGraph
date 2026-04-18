@@ -155,18 +155,30 @@ def get_stats():
         node_types = backend.get_type_counts() if hasattr(backend, "get_type_counts") else {}
         edge_types = backend.get_edge_type_counts() if hasattr(backend, "get_edge_type_counts") else {}
 
-        # Count unique reports
-        all_report_ids = set()
+        # Count unique reports — works for both NetworkX and Neo4j
+        total_reports = 0
         if hasattr(backend, "graph"):
+            all_report_ids = set()
             for _, data in backend.graph.nodes(data=True):
                 all_report_ids.update(data.get("report_ids", []))
+            total_reports = len(all_report_ids)
+        elif hasattr(backend, "driver"):
+            try:
+                with backend.driver.session() as session:
+                    result = session.run(
+                        "MATCH (n:Entity) UNWIND n.report_ids AS rid "
+                        "RETURN count(DISTINCT rid) AS c"
+                    )
+                    total_reports = result.single()["c"]
+            except Exception:
+                pass
 
         return GraphStats(
             total_nodes=backend.node_count(),
             total_edges=backend.edge_count(),
             node_types=node_types,
             edge_types=edge_types,
-            total_reports=len(all_report_ids),
+            total_reports=total_reports,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

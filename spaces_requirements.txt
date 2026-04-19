@@ -1,0 +1,11 @@
+anthropic>=0.39.0
+chromadb>=0.4.22
+networkx>=3.2
+sentence-transformers>=2.3.0
+fastapi>=0.109.0
+tenacity>=8.2.0
+httpx>=0.26.0
+numpy>=1.26.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+gradio>=4.0.0

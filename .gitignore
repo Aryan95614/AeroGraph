@@ -18,5 +18,10 @@ data/raw/*.csv
 data/processed/*.jsonl
 data/graphs/*.pkl
 chroma_db/
+data/chroma_db/
 .chroma/
 *.sqlite3
+.claude/
+CLAUDE.md
+STATUS_REPORT.md
+docs/commit_plan.md

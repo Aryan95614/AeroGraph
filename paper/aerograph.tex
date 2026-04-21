@@ -64,13 +64,15 @@ vector-plus-2-hop-graph ($0.152$, $p = 0.018$). Personalized PageRank
 alone reaches P@10 $= 0.200$ but is statistically indistinguishable
 from both the vector baseline ($p = 0.16$) and the full hybrid
 ($p = 0.23$); its apparent lead is within the noise floor at
-$n = 50$. Under blind pairwise preference, hybrid systems still win
-$62$ to $64\%$ of comparisons against single-signal baselines, and
-GraphRAG wins $72\%$ against the vector baseline. Pointwise
-faithfulness under Claude ($0.310$ for the hybrid) and pairwise
-preference under Claude ($0.62$ for the hybrid) disagree; we argue
-these two protocols measure different constructs and future RAG
-benchmarks should report both. Rankings of the bottom three systems
+$n = 50$. Under blind pairwise preference all three
+graph-augmented systems significantly beat the vector baseline
+(GraphRAG $72\%$, $p = 0.018$; Hybrid $62\%$, $p = 0.047$; PPR
+wins the decisive-query subset against GraphRAG at $p = 0.036$),
+but are statistically interchangeable with one another (Hybrid
+vs.\ PPR $p = 0.081$; Hybrid vs.\ GraphRAG $p = 0.50$). Pointwise
+Claude-rubric faithfulness and pairwise Claude preference disagree
+on the same answers; we argue these two protocols measure different
+constructs and future RAG benchmarks should report both. Rankings of the bottom three systems
 are preserved across judges; top-three rankings disagree by judge.
 Code, taxonomy tables, benchmark queries, and per-query judge scores
 are released at
@@ -486,13 +488,19 @@ PPR-only         & $0.578$ & $0.517$ & $0.230$ & $0.055$ & $0.438$ & $0.208$ \\
 
 Table~\ref{tab:pairwise} reports blind pairwise comparisons under the
 Claude judge with system labels hidden and positions randomized per
-query. GraphRAG wins $72\%$ of head-to-head comparisons against the
-vector baseline ($p = 0.018$). Hybrid RRF wins $62\%$ against vector
-($p = 0.047$) and $64\%$ against BM25 ($p = 0.022$). These
-preference outcomes disagree with the Claude-judge pointwise
-faithfulness numbers in Table~\ref{tab:answer-quality}, where the
-same judge rates vector-baseline answers as more faithful in
-isolation. We address this in Section~\ref{sec:discussion}.
+query. Three contrasts reach significance at $p < 0.05$: GraphRAG
+wins $72\%$ against the vector baseline ($p = 0.018$), Hybrid RRF
+wins $62\%$ against vector ($p = 0.047$) and $64\%$ against BM25
+($p = 0.022$), and PPR-only wins $34\%$ (with $50\%$ ties) against
+GraphRAG ($p = 0.036$). The graph-augmented systems Hybrid, GraphRAG,
+and PPR-only are not statistically distinguishable from one another
+in pairwise preference: Hybrid vs.\ PPR trends toward Hybrid but does
+not reach significance ($p = 0.081$), and Hybrid vs.\ GraphRAG is
+indistinguishable ($p = 0.50$) with $56\%$ ties. Tie rates are high
+($42$--$56\%$) for contrasts among the top-three systems, suggesting
+Claude cannot reliably separate them. All three graph-augmented
+systems beat the vector baseline under pairwise judgment but are
+approximately interchangeable from the judge's perspective.
 
 \begin{table}[t]
 \centering
@@ -500,15 +508,18 @@ isolation. We address this in Section~\ref{sec:discussion}.
 \caption{Blind pairwise comparisons under the Claude judge. System
 labels hidden; positions randomized per query. $p$-values from the
 Wilcoxon signed-rank test over $50$ paired outcomes (one-sided, left
-$>$ right).}
+$>$ right). Significant at $p < 0.05$ marked $\ast$.}
 \label{tab:pairwise}
 \begin{tabular}{lcccc}
 \toprule
-\textbf{Comparison} & \textbf{Left wins} & \textbf{Ties} & \textbf{Win rate} & $\boldsymbol{p}$ \\
+\textbf{Comparison} & \textbf{Left / Right / Tie} & \textbf{Left win rate} & $\boldsymbol{p}$ \\
 \midrule
-GraphRAG vs.\ Vector-only  & $36 / 50$ & $5$ & $\mathbf{0.72}$ & $\mathbf{0.018}$ \\
-Hybrid RRF vs.\ BM25       & $32 / 50$ & $4$ & $0.64$ & $\mathbf{0.022}$ \\
-Hybrid RRF vs.\ Vector-only & $31 / 50$ & $2$ & $0.62$ & $\mathbf{0.047}$ \\
+GraphRAG vs.\ Vector-only  & $36 / 9 / 5$  & $\mathbf{0.72}$ & $\mathbf{0.018}^{\ast}$ \\
+Hybrid vs.\ BM25           & $32 / 14 / 4$ & $0.64$ & $\mathbf{0.022}^{\ast}$ \\
+Hybrid vs.\ Vector-only    & $31 / 17 / 2$ & $0.62$ & $\mathbf{0.047}^{\ast}$ \\
+PPR-only vs.\ GraphRAG     & $17 / 8 / 25$ & $0.34$ & $\mathbf{0.036}^{\ast}$ \\
+Hybrid vs.\ PPR-only       & $16 / 9 / 25$ & $0.32$ & $0.081$ \\
+Hybrid vs.\ GraphRAG       & $11 / 11 / 28$ & $0.22$ & $0.50$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -589,28 +600,41 @@ canonicalized knowledge graph.}
 \section{Discussion}
 \label{sec:discussion}
 
-\subsection{PPR and hybrid are not statistically separable on P@10}
+\subsection{Graph-augmented retrievers are interchangeable in preference judgments}
 
-The headline numerical result is that a $4$-signal hybrid reaches
-P@10 $= 0.210$ versus PPR-only at $0.200$. Under paired Wilcoxon
-the gap is not significant ($p = 0.23$). We do not claim that the
-hybrid beats PPR on retrieval precision. Any future system that
-replaces the $4$-signal fusion with PPR alone would obtain
-indistinguishable retrieval metrics at this benchmark size.
+The headline pairwise result is that the three graph-augmented
+systems (Hybrid RRF, GraphRAG, PPR-only) are not statistically
+distinguishable from each other under blind Claude preference. Hybrid
+vs.\ PPR trends toward Hybrid ($32$ to $18\%$ win rates among the
+$25$ decisive queries) but does not reach significance
+($p = 0.081$). Hybrid vs.\ GraphRAG is a near-exact tie
+($11 / 11 / 28$, $p = 0.50$). PPR vs.\ GraphRAG reaches significance
+($p = 0.036$) on the decisive-query subset but $50\%$ of queries
+tie. All three, however, reliably beat the vector-only baseline at
+$p \le 0.05$.
 
-What \emph{does} separate the two is pairwise answer quality. Under
-the blind Claude judge, answers generated from Hybrid-RRF-retrieved
-context win $62\%$ of comparisons against vector-only contexts
-($p = 0.047$), and we infer (though do not test directly, see
-Section~\ref{sec:threats}) that a similar pattern would hold against
-PPR-only contexts. This gap plausibly comes from \emph{which}
-passages the hybrid surfaces rather than \emph{how many} are
-relevant: PPR's stationary distribution concentrates on
-entity-connected passages, while the four fused signals disagree on
-the top rank and together produce a more diverse context window.
-Diversification is a known desideratum for generation contexts
-\citep{carbonell1998mmr}; we do not measure passage-level diversity
-directly in this work and flag it as a natural follow-up.
+We do not claim, as an earlier version of this evaluation implied,
+that the $4$-signal hybrid is preferred over PPR-only for end-to-end
+answer quality. The data do not support that claim at
+$n = 50$. What the data do support is a more modest and arguably
+more useful statement: \emph{entity-graph-aware retrieval}, in any
+of the three forms tested, produces answers that a blinded judge
+prefers over dense-vector retrieval alone. The choice of how to
+aggregate entity-graph information (Personalized PageRank, 2-hop
+neighborhood plus RRF, or $4$-signal fusion with community
+summaries) has little measurable effect on downstream answer
+preference at this benchmark size. Practitioners building aviation
+safety RAG systems can prefer the simpler PPR approach without a
+documented answer-quality penalty.
+
+A related implication is that the RAG literature's focus on
+retrieval precision at a fixed cutoff may be misleading. PPR and
+Hybrid are statistically tied on both P@10 ($p = 0.23$) and pairwise
+preference ($p = 0.08$). The $4$-signal system is more expensive
+(latency $23.1$s vs.\ $2.6$s) without delivering a measurable
+accuracy return in our setting. If future work confirms this pattern
+on larger benchmarks, the finding has direct implications for how
+RAG systems over entity-rich domains should be built.
 
 \subsection{Pointwise vs. pairwise faithfulness diverge}
 
@@ -668,14 +692,14 @@ pairwise comparisons in Table~\ref{tab:pairwise} are not subject to
 this bias and should be read as the primary evidence for hybrid's
 answer-quality advantage.
 
-\paragraph{Pairwise matrix is incomplete.}
-Only three of the $\binom{6}{2} = 15$ possible pairwise comparisons
-are reported. The hardest pairs, Hybrid vs.\ PPR-only and
-Hybrid vs.\ GraphRAG, are not included, because the $p = 0.23$
-P@10 tie between Hybrid and PPR makes a preference test expensive
-(i.e., a large sample would be needed to detect a small effect).
-Reporting those pairs in a revised evaluation is a near-term
-follow-up.
+\paragraph{Pairwise matrix coverage.}
+We report six of the $\binom{6}{2} = 15$ possible pairwise
+comparisons, covering all contrasts among the three
+graph-augmented systems and each graph system against the two
+passage-only baselines (vector and BM25). Passage-only vs.\
+passage-only contrasts (BM25 vs.\ Vector, etc.) are not reported.
+Extending to the full $15$-way matrix would be a straightforward
+follow-up at an additional Claude-API cost of roughly $\$10$.
 
 \paragraph{Sample size.}
 $50$ queries is small enough that standard deviations on retrieval

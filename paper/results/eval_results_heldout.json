@@ -1,4 +1,1802 @@
 {
+  "metrics": {
+    "baseline": {
+      "faithfulness": 0.67805,
+      "faithfulness_std": 0.3025656826987138,
+      "faithfulness_ci95": 0.08386692842831434,
+      "answer_relevance": 0.9425,
+      "answer_relevance_std": 0.1433251263272937,
+      "answer_relevance_ci95": 0.03972769814625559,
+      "context_precision": -1.0,
+      "context_precision_std": 0.0,
+      "context_recall": -1.0,
+      "context_recall_std": 0.0,
+      "causal_chain_accuracy": 0.6625,
+      "causal_chain_accuracy_std": 0.3064546845525624,
+      "causal_chain_accuracy_ci95": 0.1343096873098257,
+      "reference_similarity": 0.0,
+      "precision_at_10": 0.028000000000000004,
+      "precision_at_10_std": 0.06074369035848372,
+      "recall_at_10": 0.0028000000000000004,
+      "recall_at_10_std": 0.006074369035848371,
+      "ndcg_at_10": 0.03359237140013654,
+      "ndcg_at_10_std": 0.08044512825561073,
+      "mean_latency_ms": 21302.628812789917,
+      "latency_std_ms": 31527.508760230616,
+      "n_queries": 50,
+      "single_hop_faithfulness": 0.5875,
+      "single_hop_faithfulness_std": 0.26931931742235293,
+      "single_hop_relevance": 0.91875,
+      "single_hop_relevance_std": 0.13617785390707565,
+      "single_hop_precision_at_10": 0.030000000000000006,
+      "multi_hop_faithfulness": 0.72325,
+      "multi_hop_faithfulness_std": 0.31477863984912186,
+      "multi_hop_relevance": 0.95,
+      "multi_hop_relevance_std": 0.17396309348461483,
+      "multi_hop_precision_at_10": 0.025,
+      "comparative_faithfulness": 0.76875,
+      "comparative_faithfulness_std": 0.32281584447552203,
+      "comparative_relevance": 0.975,
+      "comparative_relevance_std": 0.07905694150420949,
+      "comparative_precision_at_10": 0.030000000000000006
+    },
+    "bm25": {
+      "faithfulness": 0.7051000000000001,
+      "faithfulness_std": 0.30175885763845495,
+      "faithfulness_ci95": 0.08364328793154895,
+      "answer_relevance": 0.893,
+      "answer_relevance_std": 0.1923962747316388,
+      "answer_relevance_ci95": 0.05332952653080655,
+      "context_precision": -1.0,
+      "context_precision_std": 0.0,
+      "context_recall": -1.0,
+      "context_recall_std": 0.0,
+      "causal_chain_accuracy": 0.5375,
+      "causal_chain_accuracy_std": 0.20318192522181225,
+      "causal_chain_accuracy_ci95": 0.08904840493266923,
+      "reference_similarity": 0.0,
+      "precision_at_10": 0.028000000000000004,
+      "precision_at_10_std": 0.06712765785411846,
+      "recall_at_10": 0.0028000000000000004,
+      "recall_at_10_std": 0.0067127657854118465,
+      "ndcg_at_10": 0.023961002174636842,
+      "ndcg_at_10_std": 0.0556919664266065,
+      "mean_latency_ms": 31909.696974754333,
+      "latency_std_ms": 128581.83865548973,
+      "n_queries": 50,
+      "single_hop_faithfulness": 0.60625,
+      "single_hop_faithfulness_std": 0.2904029641359526,
+      "single_hop_relevance": 0.8699999999999999,
+      "single_hop_relevance_std": 0.1923880398952514,
+      "single_hop_precision_at_10": 0.04,
+      "multi_hop_faithfulness": 0.7555,
+      "multi_hop_faithfulness_std": 0.2983668265037096,
+      "multi_hop_relevance": 0.90625,
+      "multi_hop_relevance_std": 0.22896721783282703,
+      "multi_hop_precision_at_10": 0.015000000000000003,
+      "comparative_faithfulness": 0.8019999999999999,
+      "comparative_faithfulness_std": 0.3033076912238718,
+      "comparative_relevance": 0.9125,
+      "comparative_relevance_std": 0.10358169078880045,
+      "comparative_precision_at_10": 0.030000000000000006
+    },
+    "graph_only": {
+      "faithfulness": 0.72405,
+      "faithfulness_std": 0.2504683826639317,
+      "faithfulness_ci95": 0.06942629360696133,
+      "answer_relevance": 0.7487999999999999,
+      "answer_relevance_std": 0.2698177011182452,
+      "answer_relevance_ci95": 0.0747896510487915,
+      "context_precision": -1.0,
+      "context_precision_std": 0.0,
+      "context_recall": -1.0,
+      "context_recall_std": 0.0,
+      "causal_chain_accuracy": 0.5125,
+      "causal_chain_accuracy_std": 0.31907555614041605,
+      "causal_chain_accuracy_ci95": 0.13984102816375005,
+      "reference_similarity": 0.0,
+      "precision_at_10": 0.138,
+      "precision_at_10_std": 0.3129125847809348,
+      "recall_at_10": 0.14034545454545455,
+      "recall_at_10_std": 0.5978191063578205,
+      "ndcg_at_10": 0.15367112495341814,
+      "ndcg_at_10_std": 0.43642533381240445,
+      "mean_latency_ms": 13064.982643127441,
+      "latency_std_ms": 10474.826878075182,
+      "n_queries": 50,
+      "single_hop_faithfulness": 0.6873750000000001,
+      "single_hop_faithfulness_std": 0.2635480019694804,
+      "single_hop_relevance": 0.8220000000000001,
+      "single_hop_relevance_std": 0.23937088597536582,
+      "single_hop_precision_at_10": 0.16499999999999998,
+      "multi_hop_faithfulness": 0.775,
+      "multi_hop_faithfulness_std": 0.22797737653224784,
+      "multi_hop_relevance": 0.6875,
+      "multi_hop_relevance_std": 0.25488645562908574,
+      "multi_hop_precision_at_10": 0.11000000000000001,
+      "comparative_faithfulness": 0.6955,
+      "comparative_faithfulness_std": 0.2748378309718903,
+      "comparative_relevance": 0.725,
+      "comparative_relevance_std": 0.34258007985157446,
+      "comparative_precision_at_10": 0.13999999999999999
+    },
+    "graphrag": {
+      "faithfulness": 0.7133058020477816,
+      "faithfulness_std": 0.2751320371903703,
+      "faithfulness_ci95": 0.07626270985384025,
+      "answer_relevance": 0.88385,
+      "answer_relevance_std": 0.1772279533509869,
+      "answer_relevance_ci95": 0.049125082351076,
+      "context_precision": -1.0,
+      "context_precision_std": 0.0,
+      "context_recall": -1.0,
+      "context_recall_std": 0.0,
+      "causal_chain_accuracy": 0.6375,
+      "causal_chain_accuracy_std": 0.29774370822819024,
+      "causal_chain_accuracy_ci95": 0.13049193360833497,
+      "reference_similarity": 0.0,
+      "precision_at_10": 0.102,
+      "precision_at_10_std": 0.25514301711721105,
+      "recall_at_10": 0.05550909090909091,
+      "recall_at_10_std": 0.2031449817811669,
+      "ndcg_at_10": 0.08942965444460878,
+      "ndcg_at_10_std": 0.22629192428399145,
+      "mean_latency_ms": 126157.21922397614,
+      "latency_std_ms": 601971.7659687257,
+      "n_queries": 50,
+      "single_hop_faithfulness": 0.6595,
+      "single_hop_faithfulness_std": 0.3241218906522668,
+      "single_hop_relevance": 0.8721249999999999,
+      "single_hop_relevance_std": 0.18416110474255956,
+      "single_hop_precision_at_10": 0.12,
+      "multi_hop_faithfulness": 0.7703895051194539,
+      "multi_hop_faithfulness_std": 0.19785515386729205,
+      "multi_hop_relevance": 0.9125,
+      "multi_hop_relevance_std": 0.1713433763866551,
+      "multi_hop_precision_at_10": 0.065,
+      "comparative_faithfulness": 0.70675,
+      "comparative_faithfulness_std": 0.30656712605525366,
+      "comparative_relevance": 0.85,
+      "comparative_relevance_std": 0.18446619684315546,
+      "comparative_precision_at_10": 0.14
+    },
+    "ppr_only": {
+      "faithfulness": 0.6581465517241379,
+      "faithfulness_std": 0.29358166231707705,
+      "faithfulness_ci95": 0.08137668502851832,
+      "answer_relevance": 0.75,
+      "answer_relevance_std": 0.29987242185261903,
+      "answer_relevance_ci95": 0.08312039460926542,
+      "context_precision": -1.0,
+      "context_precision_std": 0.0,
+      "context_recall": -1.0,
+      "context_recall_std": 0.0,
+      "causal_chain_accuracy": 0.5125,
+      "causal_chain_accuracy_std": 0.286482754142466,
+      "causal_chain_accuracy_ci95": 0.12555660287820702,
+      "reference_similarity": 0.0,
+      "precision_at_10": 0.084,
+      "precision_at_10_std": 0.2234789859088705,
+      "recall_at_10": 0.031618181818181816,
+      "recall_at_10_std": 0.13176120449875625,
+      "ndcg_at_10": 0.09063916015528674,
+      "ndcg_at_10_std": 0.21932889616991377,
+      "mean_latency_ms": 11771.935019493103,
+      "latency_std_ms": 3499.8289641346228,
+      "n_queries": 50,
+      "single_hop_faithfulness": 0.559375,
+      "single_hop_faithfulness_std": 0.28495368390965614,
+      "single_hop_relevance": 0.84375,
+      "single_hop_relevance_std": 0.27167547881521015,
+      "single_hop_precision_at_10": 0.13999999999999999,
+      "multi_hop_faithfulness": 0.7359913793103449,
+      "multi_hop_faithfulness_std": 0.26869236458407475,
+      "multi_hop_relevance": 0.66875,
+      "multi_hop_relevance_std": 0.3541924655206247,
+      "multi_hop_precision_at_10": 0.005,
+      "comparative_faithfulness": 0.7,
+      "comparative_faithfulness_std": 0.32914029430219166,
+      "comparative_relevance": 0.725,
+      "comparative_relevance_std": 0.18446619684315546,
+      "comparative_precision_at_10": 0.13
+    },
+    "hybrid_4way": {
+      "faithfulness": 0.7216,
+      "faithfulness_std": 0.2346022252273679,
+      "faithfulness_ci95": 0.06502841914117242,
+      "answer_relevance": 0.9025,
+      "answer_relevance_std": 0.15626785612256558,
+      "answer_relevance_ci95": 0.04331523981233394,
+      "context_precision": -1.0,
+      "context_precision_std": 0.0,
+      "context_recall": -1.0,
+      "context_recall_std": 0.0,
+      "causal_chain_accuracy": 0.6125,
+      "causal_chain_accuracy_std": 0.3085940102430615,
+      "causal_chain_accuracy_ci95": 0.13524728813313935,
+      "reference_similarity": 0.0,
+      "precision_at_10": 0.07,
+      "precision_at_10_std": 0.17053337694733317,
+      "recall_at_10": 0.0248,
+      "recall_at_10_std": 0.11637364289071615,
+      "ndcg_at_10": 0.0617011561198003,
+      "ndcg_at_10_std": 0.14404838744087403,
+      "mean_latency_ms": 82346.58321857452,
+      "latency_std_ms": 435553.8526145238,
+      "n_queries": 50,
+      "single_hop_faithfulness": 0.622,
+      "single_hop_faithfulness_std": 0.27105252938168745,
+      "single_hop_relevance": 0.9,
+      "single_hop_relevance_std": 0.17013926184468015,
+      "single_hop_precision_at_10": 0.11000000000000001,
+      "multi_hop_faithfulness": 0.82575,
+      "multi_hop_faithfulness_std": 0.18255694857683233,
+      "multi_hop_relevance": 0.925,
+      "multi_hop_relevance_std": 0.16423667133294656,
+      "multi_hop_precision_at_10": 0.005,
+      "comparative_faithfulness": 0.7125,
+      "comparative_faithfulness_std": 0.16718668873115733,
+      "comparative_relevance": 0.8625,
+      "comparative_relevance_std": 0.10944937947136414,
+      "comparative_precision_at_10": 0.12
+    },
+    "_pairwise": {
+      "graphrag_vs_baseline": {
+        "graphrag_wins": 10,
+        "baseline_wins": 13,
+        "ties": 27,
+        "total": 50,
+        "graphrag_win_rate": 0.2,
+        "per_query": [
+          {
+            "qid": "cp01",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "cp02",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "cp03",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "cp04",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "cp05",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "cp06",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "cp07",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "cp08",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "cp09",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "cp10",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh01",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh02",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh03",
+            "winner": "baseline",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh04",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh05",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh06",
+            "winner": "graphrag",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh07",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh08",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh09",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh10",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh11",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh12",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh13",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh14",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh15",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh16",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh17",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh18",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh19",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh20",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh01",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh02",
+            "winner": "graphrag",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh03",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh04",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh05",
+            "winner": "baseline",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh06",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh07",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh08",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh09",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh10",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh11",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh12",
+            "winner": "baseline",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh13",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh14",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh15",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh16",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh17",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh18",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh19",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh20",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          }
+        ]
+      },
+      "hybrid_4way_vs_bm25": {
+        "hybrid_4way_wins": 18,
+        "bm25_wins": 10,
+        "ties": 22,
+        "total": 50,
+        "hybrid_4way_win_rate": 0.36,
+        "per_query": [
+          {
+            "qid": "cp01",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp02",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp03",
+            "winner": "bm25",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp04",
+            "winner": "tie",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "cp05",
+            "winner": "tie",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "cp06",
+            "winner": "tie",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "cp07",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp08",
+            "winner": "tie",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "cp09",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp10",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh01",
+            "winner": "hybrid_4way",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "mh02",
+            "winner": "tie",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "mh03",
+            "winner": "tie",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "mh04",
+            "winner": "tie",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "mh05",
+            "winner": "tie",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "mh06",
+            "winner": "tie",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "mh07",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh08",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh09",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh10",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh11",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh12",
+            "winner": "tie",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "mh13",
+            "winner": "bm25",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "mh14",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh15",
+            "winner": "hybrid_4way",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "mh16",
+            "winner": "bm25",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh17",
+            "winner": "tie",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "mh18",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh19",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh20",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh01",
+            "winner": "bm25",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "sh02",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh03",
+            "winner": "hybrid_4way",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "sh04",
+            "winner": "bm25",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "sh05",
+            "winner": "bm25",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh06",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh07",
+            "winner": "bm25",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "sh08",
+            "winner": "bm25",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "sh09",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh10",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh11",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh12",
+            "winner": "bm25",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "sh13",
+            "winner": "hybrid_4way",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "sh14",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh15",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh16",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh17",
+            "winner": "bm25",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "sh18",
+            "winner": "tie",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "sh19",
+            "winner": "hybrid_4way",
+            "left_sys": "bm25"
+          },
+          {
+            "qid": "sh20",
+            "winner": "tie",
+            "left_sys": "bm25"
+          }
+        ]
+      },
+      "hybrid_4way_vs_baseline": {
+        "hybrid_4way_wins": 9,
+        "baseline_wins": 16,
+        "ties": 25,
+        "total": 50,
+        "hybrid_4way_win_rate": 0.18,
+        "per_query": [
+          {
+            "qid": "cp01",
+            "winner": "baseline",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp02",
+            "winner": "hybrid_4way",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "cp03",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "cp04",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "cp05",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp06",
+            "winner": "hybrid_4way",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "cp07",
+            "winner": "baseline",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp08",
+            "winner": "baseline",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp09",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp10",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh01",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh02",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh03",
+            "winner": "hybrid_4way",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh04",
+            "winner": "baseline",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh05",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh06",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh07",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh08",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh09",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh10",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh11",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh12",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh13",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh14",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh15",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh16",
+            "winner": "baseline",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh17",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh18",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh19",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "mh20",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh01",
+            "winner": "baseline",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh02",
+            "winner": "baseline",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh03",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh04",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh05",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh06",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh07",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh08",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh09",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh10",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh11",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh12",
+            "winner": "baseline",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh13",
+            "winner": "baseline",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh14",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh15",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh16",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh17",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh18",
+            "winner": "tie",
+            "left_sys": "baseline"
+          },
+          {
+            "qid": "sh19",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh20",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          }
+        ]
+      },
+      "hybrid_4way_vs_ppr_only": {
+        "hybrid_4way_wins": 18,
+        "ppr_only_wins": 6,
+        "ties": 26,
+        "total": 50,
+        "hybrid_4way_win_rate": 0.36,
+        "per_query": [
+          {
+            "qid": "cp01",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "cp02",
+            "winner": "hybrid_4way",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "cp03",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp04",
+            "winner": "hybrid_4way",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "cp05",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp06",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp07",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp08",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "cp09",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp10",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh01",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh02",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh03",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh04",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh05",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh06",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh07",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh08",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh09",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh10",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh11",
+            "winner": "hybrid_4way",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh12",
+            "winner": "hybrid_4way",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh13",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh14",
+            "winner": "hybrid_4way",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh15",
+            "winner": "hybrid_4way",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh16",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh17",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh18",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh19",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh20",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh01",
+            "winner": "hybrid_4way",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh02",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh03",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh04",
+            "winner": "ppr_only",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh05",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh06",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh07",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh08",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh09",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh10",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh11",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh12",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh13",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh14",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh15",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh16",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh17",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh18",
+            "winner": "ppr_only",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh19",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh20",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          }
+        ]
+      },
+      "hybrid_4way_vs_graphrag": {
+        "hybrid_4way_wins": 10,
+        "graphrag_wins": 17,
+        "ties": 23,
+        "total": 50,
+        "hybrid_4way_win_rate": 0.2,
+        "per_query": [
+          {
+            "qid": "cp01",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "cp02",
+            "winner": "hybrid_4way",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "cp03",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "cp04",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp05",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp06",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp07",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp08",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp09",
+            "winner": "graphrag",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "cp10",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh01",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh02",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh03",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh04",
+            "winner": "graphrag",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh05",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh06",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh07",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh08",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh09",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh10",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh11",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh12",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh13",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh14",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh15",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh16",
+            "winner": "hybrid_4way",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh17",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh18",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh19",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "mh20",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh01",
+            "winner": "graphrag",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh02",
+            "winner": "graphrag",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh03",
+            "winner": "hybrid_4way",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh04",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh05",
+            "winner": "graphrag",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh06",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh07",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh08",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh09",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh10",
+            "winner": "hybrid_4way",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh11",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh12",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh13",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh14",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh15",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh16",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh17",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh18",
+            "winner": "hybrid_4way",
+            "left_sys": "hybrid_4way"
+          },
+          {
+            "qid": "sh19",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh20",
+            "winner": "tie",
+            "left_sys": "hybrid_4way"
+          }
+        ]
+      },
+      "ppr_only_vs_graphrag": {
+        "ppr_only_wins": 11,
+        "graphrag_wins": 22,
+        "ties": 17,
+        "total": 50,
+        "ppr_only_win_rate": 0.22,
+        "per_query": [
+          {
+            "qid": "cp01",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "cp02",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "cp03",
+            "winner": "graphrag",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "cp04",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "cp05",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "cp06",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "cp07",
+            "winner": "graphrag",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "cp08",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "cp09",
+            "winner": "graphrag",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "cp10",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh01",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh02",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh03",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh04",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh05",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh06",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh07",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh08",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh09",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh10",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh11",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh12",
+            "winner": "graphrag",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh13",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh14",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh15",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh16",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh17",
+            "winner": "graphrag",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh18",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "mh19",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "mh20",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh01",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh02",
+            "winner": "graphrag",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh03",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh04",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh05",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh06",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh07",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh08",
+            "winner": "graphrag",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh09",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh10",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh11",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh12",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh13",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh14",
+            "winner": "ppr_only",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh15",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh16",
+            "winner": "graphrag",
+            "left_sys": "graphrag"
+          },
+          {
+            "qid": "sh17",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh18",
+            "winner": "graphrag",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh19",
+            "winner": "tie",
+            "left_sys": "ppr_only"
+          },
+          {
+            "qid": "sh20",
+            "winner": "tie",
+            "left_sys": "graphrag"
+          }
+        ]
+      }
+    }
+  },
   "results": [
     {
       "query_id": "sh01",
@@ -7171,57 +8969,5 @@
       "ndcg_at_10": 0.0,
       "recall_at_10": 0.0
     }
-  ],
-  "completed_query_ids": [
-    "mh13",
-    "mh18",
-    "sh03",
-    "sh09",
-    "mh01",
-    "mh09",
-    "sh20",
-    "sh17",
-    "mh14",
-    "mh12",
-    "cp09",
-    "cp10",
-    "sh04",
-    "sh01",
-    "cp02",
-    "sh13",
-    "mh05",
-    "cp05",
-    "mh10",
-    "mh08",
-    "mh06",
-    "mh16",
-    "sh08",
-    "sh16",
-    "mh17",
-    "mh02",
-    "mh19",
-    "sh12",
-    "cp04",
-    "sh11",
-    "sh18",
-    "sh06",
-    "mh20",
-    "cp01",
-    "sh05",
-    "mh15",
-    "mh11",
-    "mh07",
-    "sh14",
-    "cp08",
-    "cp07",
-    "sh10",
-    "mh04",
-    "sh07",
-    "sh15",
-    "cp03",
-    "cp06",
-    "sh02",
-    "mh03",
-    "sh19"
   ]
 }

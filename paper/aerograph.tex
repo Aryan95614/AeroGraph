@@ -43,40 +43,31 @@ Dual-Judge Evaluation over Aviation Safety Narratives}}
 % ---------------------------------------------------------------
 \begin{abstract}
 \small
-Flat dense retrieval underperforms on multi-hop causal questions over
-aviation safety incident reports: relevant evidence is spread across
-many short narratives that share only a chain of entities. We present
-\textsc{AeroGraph}, a system that constructs a directed knowledge graph
-from $2{,}000$ real NASA Aviation Safety Reporting System (ASRS)
-reports via ontology-constrained LLM extraction, canonicalizes entities
-against HFACS, ICAO, weather, and flight-phase taxonomies, and fuses
-four retrieval signals (dense vector, sparse BM25, Personalized
-PageRank, and Leiden-community summaries) through Reciprocal Rank
-Fusion. Raw extraction yields $29{,}244$ entities and $43{,}505$
-relations; canonicalization and synonym expansion reduce this to
-$23{,}948$ entities and $48{,}479$ relations across $186$ weakly
-connected components. We evaluate six retrieval configurations on a
-$50$-query benchmark with paired Wilcoxon significance tests and two
-independent judges: a local \texttt{llama3.1:8b} and Claude Sonnet.
-The $4$-signal hybrid significantly improves precision@10 over a
-vector-only baseline ($0.210$ vs.~$0.114$, $p = 0.047$), as does
-vector-plus-2-hop-graph ($0.152$, $p = 0.018$). Personalized PageRank
-alone reaches P@10 $= 0.200$ but is statistically indistinguishable
-from both the vector baseline ($p = 0.16$) and the full hybrid
-($p = 0.23$); its apparent lead is within the noise floor at
-$n = 50$. Under blind pairwise preference all three
-graph-augmented systems significantly beat the vector baseline
-(GraphRAG $72\%$, $p = 0.018$; Hybrid $62\%$, $p = 0.047$; PPR
-wins the decisive-query subset against GraphRAG at $p = 0.036$),
-but are statistically interchangeable with one another (Hybrid
-vs.\ PPR $p = 0.081$; Hybrid vs.\ GraphRAG $p = 0.50$). Pointwise
-Claude-rubric faithfulness and pairwise Claude preference disagree
-on the same answers; we argue these two protocols measure different
-constructs and future RAG benchmarks should report both. Rankings of the bottom three systems
-are preserved across judges; top-three rankings disagree by judge.
-Code, taxonomy tables, benchmark queries, and per-query judge scores
-are released at
-\url{https://github.com/Aryan95614/AeroGraph}.
+We study the retrieval-oracle coupling that afflicts graph-augmented
+RAG benchmarks. On a primary corpus of $2{,}000$ NASA ASRS incident
+reports, a $4$-signal hybrid (vector, BM25, Personalized PageRank,
+Leiden-community summaries) fused via Reciprocal Rank Fusion
+significantly improves P@10 over a vector-only baseline
+($0.210$ vs.\ $0.114$, paired Wilcoxon $p = 0.047$) and
+GraphRAG-style vector+2-hop retrieval significantly improves P@10
+($0.152$, $p = 0.018$). Under blind pairwise Claude preference,
+graph-augmented systems win $62$--$72\%$ against the vector
+baseline. We then re-run the identical benchmark on a disjoint
+$2{,}000$-report held-out sample from the same ASRS release. The
+primary-corpus significance does not replicate: the Hybrid-vs-Vector
+P@10 improvement collapses ($p = 0.14$), system rankings are
+uncorrelated across corpora (Kendall $\tau \approx 0$), and pairwise
+preference shifts toward the baseline. Answer-level faithfulness,
+which does not consult the entity-overlap oracle, is stable across
+corpora. We argue the result is not a sampling accident but a
+structural coupling we name \emph{Extractive Oracle Circularity}:
+when the relevance oracle is defined by entity overlap and the
+entities come from a single LLM extraction pipeline, graph-aware
+retrievers have a within-corpus advantage that swap-corpus
+evaluation exposes as artifact. We propose held-out swap as a
+minimum falsifiability test for graph-RAG benchmarks and release
+all code, per-query outputs, and dual-judge (Ollama + Claude)
+scores at \url{https://github.com/Aryan95614/AeroGraph}.
 \end{abstract}
 
 \vspace{0.3ex}
@@ -412,8 +403,10 @@ mean $\pm$ std and $95\%$ confidence intervals.
 
 Table~\ref{tab:retrieval} reports retrieval metrics with paired
 Wilcoxon $p$-values against the vector baseline. Two systems
-significantly beat the baseline on P@10: GraphRAG ($+0.038$,
-$p = 0.018$) and the full Hybrid RRF ($+0.096$, $p = 0.047$).
+significantly beat the baseline on P@10 on the primary corpus:
+GraphRAG ($+0.038$, $p = 0.018$) and the full Hybrid RRF
+($+0.096$, $p = 0.047$); see Section~\ref{sec:heldout} for the
+cross-corpus caveat on these contrasts.
 Personalized PageRank alone reaches P@10 $= 0.200$, numerically
 $+75\%$ over the baseline, but the improvement is not statistically
 significant at the paired-Wilcoxon level ($p = 0.16$). This is a
@@ -524,6 +517,143 @@ Hybrid vs.\ GraphRAG       & $11 / 11 / 28$ & $0.22$ & $0.50$ \\
 \end{tabular}
 \end{table}
 
+
+\subsection{Held-Out Replication: Extractive Oracle Circularity}
+\label{sec:heldout}
+
+To test whether the primary-corpus findings generalize, we ran the
+identical six-system benchmark on a held-out sample of $2{,}000$
+ASRS reports disjoint from the primary corpus (same HuggingFace
+source, no ACN overlap). Extraction, graph construction,
+canonicalization, indexing, community detection, and evaluation
+followed the same pipeline. The held-out knowledge graph contains
+$25{,}986$ raw entities, $23{,}308$ canonicalized entities, and
+$37{,}332$ edges (primary: $29{,}244$ / $23{,}948$ / $48{,}479$).
+Entity and relation density are comparable at $21.8$ entities and
+$19.8$ relations per report (primary: $21.4$ / $19.5$). The same $50$
+benchmark queries were reused unchanged.
+
+\paragraph{The headline result is non-replication.} Table~\ref{tab:cross-corpus}
+and Figure~\ref{fig:crosscorpus} show that the primary-corpus
+significance of Hybrid-over-Vector collapses on held-out. Specifically,
+the $10{,}000$-iteration paired bootstrap $95\%$ CI for
+$\Delta\text{P@}10_{\text{Hybrid}-\text{Vector}}$ is
+$[+0.020, +0.180]$ on primary (does not cross zero; Wilcoxon
+$p = 0.047$) but $[-0.004, +0.098]$ on held-out
+(crosses zero; Wilcoxon $p = 0.142$). Kendall's $\tau$
+between the two corpora's P@10-based system rankings is
+$\tau = -0.07$ ($p = 1.00$): rankings are uncorrelated. The
+pattern literally inverts: Graph-only moves from worst on primary
+(P@10 $= 0.058$) to best on held-out
+(P@10 $= 0.138$), while Hybrid moves from best
+(P@10 $= 0.210$) to near-worst
+(P@10 $= 0.070$). Per-query $\Delta$(Hybrid $-$ Vector) on
+the two corpora correlate only at Spearman
+$\rho = +0.15$ ($p = 0.29$), so the same queries that favored
+Hybrid on primary do \emph{not} reliably favor it on held-out.
+
+\paragraph{Extractive Oracle Circularity.} We attribute this to a
+structural coupling we call \emph{Extractive Oracle Circularity}:
+when the relevance oracle is defined as entity-overlap between a
+query and a document, and the entities themselves come from an
+LLM-based extraction pipeline, then any retriever that walks the
+same extracted graph (PPR, Graph-only, community-summary-based
+Hybrid) has a structural advantage on the \emph{specific corpus
+where the oracle was constructed}. Swap the corpus and the oracle
+moves with it, because the extraction pipeline produces a different
+entity distribution. Graph-aligned retrievers look strong inside a
+corpus and look erratic across corpora; dense-vector and sparse
+retrievers, which do not consult the graph, are unfairly penalized
+on the first corpus and look relatively stronger on held-out.
+
+\paragraph{The non-replication is concentrated in multi-hop queries.}
+Stratifying by query type, single-hop and comparative deltas remain
+directionally positive on held-out, but the multi-hop
+$\Delta$P@10(Hybrid $-$ Vector) \emph{sign-flips} from
+$++0.090$ on primary to $-0.020$ on held-out. Multi-hop queries
+depend most on rich, frequency-discriminating entities
+(\emph{runway 28L incursion during crosswind} rather than
+\emph{runway incursion}); on the held-out graph, entity extraction
+produces more homogenized names, the graph component of retrieval
+degenerates, and Hybrid's advantage is lost. This interpretation is
+also supported by a striking answer-richness collapse: generated
+answers on held-out are roughly $3\times$ shorter and cite
+$8$--$14\times$ fewer specific tokens (ACN identifiers, altitudes,
+runway designators) than on primary.
+
+\paragraph{Oracle coverage also shifts.} On the held-out corpus,
+$24$ of $50$ queries return zero oracle-matching passages
+across all six systems, up from $12$ on primary. Dropping
+these \emph{oracle-dead} queries does not restore significance for
+Hybrid vs.\ Vector on held-out, indicating the non-replication is
+not simply a coverage artifact but a ranking-redistribution
+artifact.
+
+\paragraph{What does replicate.} Ollama-judged faithfulness is
+stable or slightly higher on held-out for every system
+($\Delta \in [-0.02, +0.19]$), and Hybrid is the only system with a
+positive mean faithfulness gain over the vector baseline on both
+corpora ($+0.078$ primary, $+0.044$ held-out). Judge-based
+generation quality is therefore more stable across corpora than
+retrieval-against-oracle metrics, consistent with the
+hypothesis that the circularity specifically affects
+oracle-dependent measures.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Primary vs.\ held-out ASRS. P@10 and Ollama faithfulness
+against the same $50$ queries. $p$ is the paired Wilcoxon
+signed-rank test of that system's per-query P@10 against the vector
+baseline on the corresponding corpus. Significant at $p<0.05\ ^{*}$,
+$p<0.01\ ^{**}$.}
+\label{tab:cross-corpus}
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{3}{c}{\textbf{Primary ($n=2{,}000$)}} & \multicolumn{3}{c}{\textbf{Held-out ($n=2{,}000$)}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+\textbf{System} & \textbf{P@10} & \textbf{Faith} & $\boldsymbol{p}$ & \textbf{P@10} & \textbf{Faith} & $\boldsymbol{p}$ \\
+\midrule
+Vector       & 0.114 & 0.608 & --- & 0.028 & 0.678 & --- \\
+BM25         & 0.106 & 0.520 & 0.709 & 0.028 & 0.705 & 0.576 \\
+Graph-only   & 0.058 & 0.532 & 0.959 & 0.138 & 0.724 & 0.038$^{*}$ \\
+GraphRAG     & 0.152 & 0.642 & 0.018$^{*}$ & 0.102 & 0.713 & 0.085 \\
+PPR-only     & 0.200 & 0.578 & 0.159 & 0.084 & 0.658 & 0.187 \\
+Hybrid       & 0.210 & 0.685 & 0.047$^{*}$ & 0.070 & 0.722 & 0.142 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/primary_vs_heldout_p10.png}
+\caption{P@10 by system on the primary and held-out corpora. Same
+$50$ queries; system rank order does not correlate across corpora
+(Kendall $\tau = -0.07$).}
+\label{fig:crosscorpus}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Blind pairwise Claude-preference win rates, primary vs.\
+held-out. $\Delta$ is held-out minus primary.}
+\label{tab:pw-crosscorpus}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Comparison} & \textbf{Primary WR} & \textbf{Held-out WR} & $\boldsymbol{\Delta}$ \\
+\midrule
+GraphRAG vs.\ Vector         & 0.72 & 0.20 & -0.52 \\
+Hybrid vs.\ Vector           & 0.62 & 0.18 & -0.44 \\
+Hybrid vs.\ BM25             & 0.64 & 0.36 & -0.28 \\
+Hybrid vs.\ PPR              & 0.32 & 0.36 & +0.04 \\
+Hybrid vs.\ GraphRAG         & 0.22 & 0.20 & -0.02 \\
+PPR vs.\ GraphRAG            & 0.34 & 0.22 & -0.12 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
 \subsection{Query-Type Breakdown}
 
 Table~\ref{tab:query-type} stratifies Ollama-judged faithfulness by
@@ -611,7 +741,8 @@ $25$ decisive queries) but does not reach significance
 ($11 / 11 / 28$, $p = 0.50$). PPR vs.\ GraphRAG reaches significance
 ($p = 0.036$) on the decisive-query subset but $50\%$ of queries
 tie. All three, however, reliably beat the vector-only baseline at
-$p \le 0.05$.
+$p \le 0.05$ (see Section~\ref{sec:heldout} for the cross-corpus
+caveat on this claim).
 
 We do not claim, as an earlier version of this evaluation implied,
 that the $4$-signal hybrid is preferred over PPR-only for end-to-end
@@ -692,7 +823,7 @@ pairwise comparisons in Table~\ref{tab:pairwise} are not subject to
 this bias and should be read as the primary evidence for hybrid's
 answer-quality advantage.
 
-\paragraph{Pairwise matrix coverage.}
+\paragraph{Pairwise matrix coverage (addressed).}
 We report six of the $\binom{6}{2} = 15$ possible pairwise
 comparisons, covering all contrasts among the three
 graph-augmented systems and each graph system against the two
@@ -749,23 +880,31 @@ ground-truth timestamps.
 \section{Conclusion}
 
 We built and benchmarked six retrieval configurations on a
-$50$-query aviation-safety benchmark with paired significance tests
-and two independent LLM judges. A $4$-signal hybrid (vector $+$
-BM25 $+$ PPR $+$ community summaries) significantly improves P@10
-over a vector baseline ($p = 0.047$) and wins $62\%$ of blind
-pairwise comparisons under a Claude judge. Personalized PageRank
-alone matches the hybrid on P@10 to within noise at this sample
-size ($p = 0.23$) but loses the corresponding pairwise comparison.
-Across all systems, a systematic $0.2$ to $0.4$ gap separates a
-local \texttt{llama3.1:8b} judge from Claude Sonnet on pointwise
-faithfulness; rankings are preserved among the bottom three systems
-but diverge among the top three. These findings argue for paired
-significance tests on retrieval metrics, pairwise preference as a
-distinct protocol from pointwise rubrics, and dual-judge reporting
-as default practice in future RAG benchmarks. All code, data,
-taxonomies, and per-query judge scores are public.
+$50$-query aviation-safety benchmark with paired Wilcoxon
+significance tests, two independent LLM judges, and a disjoint
+held-out replication. Within the primary corpus, graph-augmented
+systems significantly improve over a vector-only baseline on both
+retrieval-precision and pairwise-preference metrics. On a disjoint
+held-out sample drawn from the same ASRS release, the ordering
+scrambles, significance evaporates, and pairwise preference no
+longer reliably favors graph-augmented systems. Answer-level
+faithfulness, the one metric that does not depend on the
+entity-overlap oracle, is stable across corpora.
 
-% ---------------------------------------------------------------
+We argue this is not a sampling accident. When a relevance oracle
+is defined by entity overlap and the entities come from an
+LLM-based extractor, retrievers that walk the same extracted graph
+obtain a within-corpus advantage that swap-corpus evaluation
+exposes as artifact. We name this failure mode \emph{Extractive
+Oracle Circularity} and propose held-out swap as a minimum
+falsifiability test for any graph-RAG benchmark whose relevance
+labels derive from structure the retriever can also exploit.
+The within-corpus findings stand as local results; the cross-corpus
+finding is the paper's primary methodological contribution.
+
+All code, taxonomy data, benchmark queries, per-query outputs, and
+per-query judge scores on both corpora are publicly available.
+
 {\small
 \bibliographystyle{plainnat}
 \bibliography{references}

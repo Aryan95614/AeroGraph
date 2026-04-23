@@ -10,6 +10,7 @@ Endpoints:
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
@@ -155,23 +156,14 @@ def get_stats():
         node_types = backend.get_type_counts() if hasattr(backend, "get_type_counts") else {}
         edge_types = backend.get_edge_type_counts() if hasattr(backend, "get_edge_type_counts") else {}
 
-        # Count unique reports — works for both NetworkX and Neo4j
+        # Ground truth for report count: the actual reports.jsonl file.
+        # Graph-derived counts can include stale IDs from pre-filter entities
+        # that weren't fully pruned during normalization, inflating the number.
         total_reports = 0
-        if hasattr(backend, "graph"):
-            all_report_ids = set()
-            for _, data in backend.graph.nodes(data=True):
-                all_report_ids.update(data.get("report_ids", []))
-            total_reports = len(all_report_ids)
-        elif hasattr(backend, "driver"):
-            try:
-                with backend.driver.session() as session:
-                    result = session.run(
-                        "MATCH (n:Entity) UNWIND n.report_ids AS rid "
-                        "RETURN count(DISTINCT rid) AS c"
-                    )
-                    total_reports = result.single()["c"]
-            except Exception:
-                pass
+        reports_path = Path(__file__).parent.parent.parent / "data" / "processed" / "reports.jsonl"
+        if reports_path.exists():
+            with open(reports_path) as f:
+                total_reports = sum(1 for line in f if line.strip())
 
         return GraphStats(
             total_nodes=backend.node_count(),

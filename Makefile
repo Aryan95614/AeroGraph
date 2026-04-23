@@ -1,4 +1,4 @@
-.PHONY: install ingest extract build embed serve eval demo paper all clean test dashboard stats pipeline spaces deploy upload-dataset
+.PHONY: install repro ingest extract build embed serve eval demo paper all clean test dashboard stats pipeline spaces upload-dataset
 
 install:
 	pip install -e ".[dev]"
@@ -47,10 +47,19 @@ dashboard:
 spaces:
 	python app.py
 
-deploy:
-	modal deploy modal_app.py
 
 upload-dataset:
 	python scripts/upload_dataset.py
 
 all: install ingest build embed eval paper
+
+repro:
+	@echo "[repro] installing package..."
+	pip install -e ".[dev]" >/dev/null
+	@echo "[repro] checking data artifacts..."
+	@test -f data/graphs/aerograph.pkl || (echo "missing graph — fetch from HF dataset first"; exit 1)
+	@test -d data/chroma_db || (echo "missing chroma_db — fetch from HF dataset first"; exit 1)
+	@echo "[repro] running integration test..."
+	python -m pytest tests/test_integration.py -v
+	@echo "[repro] launching cached-mode Gradio demo on :7860 (unset ANTHROPIC_API_KEY) ..."
+	unset ANTHROPIC_API_KEY && python app.py

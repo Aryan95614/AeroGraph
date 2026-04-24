@@ -1,4 +1,10 @@
-# AeroGraph
+"""Overwrite README.md with the ExOC-framed version. Idempotent."""
+from __future__ import annotations
+from pathlib import Path
+
+README = Path("README.md")
+
+CONTENT = r"""# AeroGraph
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](tests/)
@@ -18,8 +24,8 @@ entity overlap and the entities come from one LLM extraction pipeline,
 graph-aware retrievers have a within-corpus advantage that swap-corpus
 evaluation exposes as artifact.
 
-- **Live demo (HuggingFace Space):** https://huggingface.co/spaces/Aryan95614/aerograph
-- **Dataset (HuggingFace):** https://huggingface.co/datasets/Aryan95614/aerograph-asrs
+- **Live demo (HuggingFace Space):** _TBA — see `scripts/deploy_hf_space.py`_
+- **Dataset (HuggingFace):** _TBA — see `scripts/upload_dataset.py`_
 - **Paper:** [`paper/aerograph_v0.1.pdf`](paper/aerograph_v0.1.pdf) (arXiv submission pending)
 
 ## Architecture
@@ -136,3 +142,13 @@ paper/            LaTeX source, figures, results JSONs
 
 MIT — see [LICENSE](LICENSE). ASRS narratives are NASA public-domain data;
 our extracted knowledge graph and benchmark queries are released under CC-BY-4.0.
+"""
+
+
+def main():
+    README.write_text(CONTENT)
+    print(f"wrote {README} ({len(CONTENT)} chars)")
+
+
+if __name__ == "__main__":
+    main()

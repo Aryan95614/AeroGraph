@@ -62,9 +62,16 @@ def main():
     #   jinja2<3.1.5                gradio's template cache hits
     #                                TypeError: unhashable type: 'dict' on 3.1.5+
     #   audioop-lts                 fallback if HF defaults to Python 3.13
-    requirements = """gradio>=4.44.0,<5
+    # Load-bearing version pins:
+    #   gradio==4.44.1           bug in 4.44.0 passes a dict as jinja2 cache
+    #                             key; 4.44.1 fixed it (gradio #9985)
+    #   huggingface_hub<0.28     gradio 4.44 imports HfFolder (removed in 0.28)
+    #   jinja2==3.1.2            strict-hash behaviour in 3.1.3+ surfaces
+    #                             gradio's latent cache-key bug
+    #   audioop-lts              fallback if HF defaults to Python 3.13
+    requirements = """gradio==4.44.1
 huggingface_hub>=0.20,<0.28
-jinja2>=3.1.2,<3.1.5
+jinja2==3.1.2
 audioop-lts>=0.2.1; python_version>='3.13'
 anthropic>=0.39.0
 chromadb>=0.4.22
@@ -82,7 +89,7 @@ emoji: ✈️
 colorFrom: blue
 colorTo: red
 sdk: gradio
-sdk_version: 4.44.0
+sdk_version: 4.44.1
 app_file: app.py
 python_version: "3.12"
 pinned: false

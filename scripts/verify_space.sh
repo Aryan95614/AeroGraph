@@ -80,7 +80,7 @@ pip install --quiet --disable-pip-version-check -r /tmp/verify_space_reqs.txt >/
     tail -20 /tmp/verify_space_pip.log
     fail "pip install failed"
 }
-python -c "import gradio, anthropic, chromadb; print('imports OK')" || {
+python -c "import gradio; print(f'imports OK (gradio {gradio.__version__})')" || {
     deactivate || true
     fail "core imports failed in clean venv"
 }

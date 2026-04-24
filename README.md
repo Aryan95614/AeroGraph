@@ -18,7 +18,7 @@ entity overlap and the entities come from one LLM extraction pipeline,
 graph-aware retrievers have a within-corpus advantage that swap-corpus
 evaluation exposes as artifact.
 
-- **Live demo (HuggingFace Space):** https://huggingface.co/spaces/Aryan95614/aerograph
+- **Live demo (HuggingFace Space):** https://huggingface.co/spaces/Aryan95614/aerograph-v2
 - **Dataset (HuggingFace):** https://huggingface.co/datasets/Aryan95614/aerograph-asrs
 - **Paper:** [`paper/aerograph_v0.1.pdf`](paper/aerograph_v0.1.pdf) (arXiv submission pending)
 

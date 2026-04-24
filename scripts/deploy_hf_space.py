@@ -9,7 +9,7 @@ import shutil
 import sys
 from pathlib import Path
 
-SPACE_REPO_ID = os.environ.get("HF_SPACE_ID", "Aryan95614/aerograph")
+SPACE_REPO_ID = os.environ.get("HF_SPACE_ID", "Aryan95614/aerograph-v2")
 LOCAL_STAGE = Path("/tmp/aerograph_space_stage")
 
 
@@ -62,23 +62,16 @@ def main():
     #   jinja2<3.1.5                gradio's template cache hits
     #                                TypeError: unhashable type: 'dict' on 3.1.5+
     #   audioop-lts                 fallback if HF defaults to Python 3.13
-    # Load-bearing version pins:
-    #   gradio>=5.0,<6           bug in 4.44.0 passes a dict as jinja2 cache
-    #                             key; 4.44.1 fixed it (gradio #9985)
-    #   huggingface_hub<0.28     gradio 4.44 imports HfFolder (removed in 0.28)
-    #   jinja2>=3.1            strict-hash behaviour in 3.1.3+ surfaces
-    #                             gradio's latent cache-key bug
-    #   audioop-lts              fallback if HF defaults to Python 3.13
-    requirements = """gradio>=5.0,<6
-huggingface_hub>=0.20,<0.28
-jinja2>=3.1
-audioop-lts>=0.2.1; python_version>='3.13'
-anthropic>=0.39.0
-chromadb>=0.4.22
-networkx>=3.2
-sentence-transformers>=2.3.0
-numpy>=1.26.0
-python-dotenv>=1.0.0
+    # Minimal deps for the cached-only HF Space app.py.
+    # gradio==5.25.0 (or later 5.x) is the first version whose oauth module
+    # stopped importing HfFolder; pinning huggingface_hub<0.28 on top of
+    # HF's base image (which pre-installs huggingface-hub>=0.30) creates an
+    # unresolvable pip conflict. 5.25 removes the need for the pin entirely.
+    # The HF Space base image pre-installs requests and friends; the verify
+    # clean-venv doesn't, so list them explicitly for reproducibility.
+    requirements = """\
+gradio==5.25.0
+requests>=2.31
 """
     (LOCAL_STAGE / "requirements.txt").write_text(requirements)
 
@@ -89,7 +82,7 @@ emoji: ✈️
 colorFrom: blue
 colorTo: red
 sdk: gradio
-sdk_version: 5.0.0
+sdk_version: 5.25.0
 app_file: app.py
 python_version: "3.12"
 pinned: false

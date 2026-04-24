@@ -7,7 +7,7 @@ as a structured HuggingFace dataset.
 Usage:
     pip install huggingface_hub datasets
     huggingface-cli login
-    python scripts/upload_dataset.py [--repo-id AryanDhawan/aerograph-asrs]
+    python scripts/upload_dataset.py [--repo-id Aryan95614/aerograph-asrs]
 """
 
 import argparse
@@ -39,8 +39,8 @@ def load_extractions(path: Path) -> list[dict]:
 
 def main():
     parser = argparse.ArgumentParser(description="Upload AeroGraph dataset to HuggingFace Hub")
-    parser.add_argument("--repo-id", default="AryanDhawan/aerograph-asrs",
-                        help="HuggingFace repo ID (default: AryanDhawan/aerograph-asrs)")
+    parser.add_argument("--repo-id", default="Aryan95614/aerograph-asrs",
+                        help="HuggingFace repo ID (default: Aryan95614/aerograph-asrs)")
     parser.add_argument("--private", action="store_true",
                         help="Make the dataset private")
     args = parser.parse_args()
@@ -113,15 +113,18 @@ def main():
         print(f"  Extractions dataset: {extractions_ds}")
         splits["extractions"] = extractions_ds
 
-    dataset_dict = DatasetDict(splits)
-
     # --- Upload ---
+    # reports and extractions have different schemas; push each as its own
+    # config rather than as splits of a single DatasetDict.
     print(f"\nUploading to {args.repo_id}...")
-    dataset_dict.push_to_hub(
-        args.repo_id,
-        private=args.private,
-        commit_message="Upload AeroGraph ASRS dataset: 2000 real NASA reports + entity/relation extractions",
-    )
+    for config_name, ds in splits.items():
+        print(f"  pushing config '{config_name}' ({len(ds)} rows)...")
+        ds.push_to_hub(
+            args.repo_id,
+            config_name=config_name,
+            private=args.private,
+            commit_message=f"Upload AeroGraph ASRS dataset: {config_name} config",
+        )
 
     print(f"\nDataset uploaded to: https://huggingface.co/datasets/{args.repo_id}")
 
@@ -222,7 +225,7 @@ extractions = load_dataset("{args.repo_id}", "extractions", split="extractions")
          Reasoning over Aviation Safety Reports}},
   author={{Dhawan, Aryan}},
   year={{2026}},
-  url={{https://github.com/AryanDhawan/AeroGraph}}
+  url={{https://github.com/Aryan95614/AeroGraph}}
 }}
 ```
 

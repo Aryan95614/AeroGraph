@@ -38,6 +38,30 @@ def _load_cache() -> dict:
     return _cached_answers
 
 
+# --- demo_cache.jsonl loader (wire_app_cached_mode) ---
+_demo_cache_v2 = None
+
+
+def _load_demo_cache_v2() -> dict:
+    """Load demo_cache.jsonl (one JSON entry per line) as question->entry dict."""
+    global _demo_cache_v2
+    if _demo_cache_v2 is None:
+        _demo_cache_v2 = {}
+        p = Path(__file__).parent / "data" / "demo_cache.jsonl"
+        if p.exists():
+            with open(p) as f:
+                for line in f:
+                    try:
+                        e = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    q = e.get("question")
+                    if q:
+                        _demo_cache_v2[q] = e
+    return _demo_cache_v2
+
+
+
 # ---------------------------------------------------------------------------
 # Lazy singletons — only loaded in live mode
 # ---------------------------------------------------------------------------
@@ -83,6 +107,18 @@ PRESET_QUERIES = [
 def _cached_answer(question: str, system: str) -> tuple[str, str, str]:
     cache = _load_cache()
     entry = cache.get(question)
+    if not entry:
+        v2 = _load_demo_cache_v2()
+        v2_entry = v2.get(question)
+        if v2_entry:
+            return (
+                v2_entry.get("answer", ""),
+                "\n".join(f"- ACN **{a}**" for a in v2_entry.get("sources", [])[:8]) or "*no sources*",
+                "**Cached demo** | latency {:.0f}ms retrieval + {:.0f}ms generation".format(
+                    v2_entry.get("retrieval_latency_ms", 0),
+                    v2_entry.get("generation_latency_ms", 0),
+                ),
+            )
     if not entry:
         msg = (
             "**Cached-demo mode.** This deployment runs without an API key and serves "

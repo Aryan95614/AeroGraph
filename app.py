@@ -516,11 +516,10 @@ Repo: {REPO_URL}
 
 if __name__ == "__main__":
     app = build_app()
-    # HF Spaces expects the app to bind 0.0.0.0 on the port HF supplies via
-    # the GRADIO_SERVER_PORT env var. Gradio reads that automatically when
-    # server_port is not passed.
-    launch_kwargs = {"server_name": "0.0.0.0"}
-    if not os.getenv("SPACE_ID"):
-        # Local dev: fix the port and disable share. On HF, let Gradio infer.
-        launch_kwargs.update(server_port=7860, share=False)
-    app.launch(**launch_kwargs)
+    # HF Spaces ALWAYS wants 0.0.0.0:7860. Gradio's env-var inference was
+    # unreliable across 4.x -> 5.x versions and left replicas in a "Running"
+    # state with no port bound. Pin explicitly.
+    app.launch(
+        server_name="0.0.0.0",
+        server_port=int(os.getenv("GRADIO_SERVER_PORT", 7860)),
+    )

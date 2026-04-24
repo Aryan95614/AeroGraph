@@ -23,9 +23,9 @@ evaluation exposes as artifact.
 <p align="center">
   <a href="https://huggingface.co/spaces/Aryan95614/aerograph-v2" target="_blank" rel="noopener">
     <img
-      src="https://cdn-thumbnails.huggingface.co/social-thumbnails/spaces/Aryan95614/aerograph-v2.png"
-      alt="Open the AeroGraph demo on HuggingFace Spaces"
-      width="720"
+      src="docs/demo_screenshot.png"
+      alt="AeroGraph cached demo — click to open the live Space"
+      width="780"
     />
   </a>
 </p>

@@ -18,9 +18,36 @@ entity overlap and the entities come from one LLM extraction pipeline,
 graph-aware retrievers have a within-corpus advantage that swap-corpus
 evaluation exposes as artifact.
 
-- **Live demo (HuggingFace Space):** https://huggingface.co/spaces/Aryan95614/aerograph-v2
-- **Dataset (HuggingFace):** https://huggingface.co/datasets/Aryan95614/aerograph-asrs
-- **Paper:** [`paper/aerograph_v0.1.pdf`](paper/aerograph_v0.1.pdf) (arXiv submission pending)
+## Try the Live Demo
+
+<p align="center">
+  <a href="https://huggingface.co/spaces/Aryan95614/aerograph-v2" target="_blank" rel="noopener">
+    <img
+      src="https://cdn-thumbnails.huggingface.co/social-thumbnails/spaces/Aryan95614/aerograph-v2.png"
+      alt="Open the AeroGraph demo on HuggingFace Spaces"
+      width="720"
+    />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://huggingface.co/spaces/Aryan95614/aerograph-v2" target="_blank" rel="noopener">
+    <img src="https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-lg.svg" alt="Open in HuggingFace Spaces" />
+  </a>
+  &nbsp;
+  <a href="https://huggingface.co/datasets/Aryan95614/aerograph-asrs" target="_blank" rel="noopener">
+    <img src="https://img.shields.io/badge/🤗%20Dataset-aerograph--asrs-yellow" alt="HF Dataset" />
+  </a>
+  &nbsp;
+  <a href="paper/aerograph_v0.1.pdf">
+    <img src="https://img.shields.io/badge/Paper-v0.1%20PDF-blue" alt="Paper PDF" />
+  </a>
+</p>
+
+The Space runs in **cached mode**: click any of the 10 preset showcase queries
+and see a grounded answer with ACN citations. No API key required. For live
+queries against the full hybrid retriever, clone the repo and set
+`ANTHROPIC_API_KEY`.
 
 ## Architecture
 

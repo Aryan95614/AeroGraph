@@ -25,3 +25,7 @@ data/chroma_db/
 CLAUDE.md
 STATUS_REPORT.md
 docs/commit_plan.md
+*.bak
+data_heldout/
+*.npz
+

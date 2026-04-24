@@ -36,10 +36,12 @@ def main():
     probe = (
         "import sys, inspect; sys.path.insert(0, '.');"
         "import gradio as gr;"
-        "from app import build_app, CACHED_MODE;"
-        "assert CACHED_MODE, 'expected CACHED_MODE=True with no API key';"
-        "blocks = build_app();"
-        "assert blocks is not None, 'build_app returned None';"
+        # Support both the full app (build_app) and minimal cached demo (build).
+        "import app as _a;"
+        "builder = getattr(_a, 'build_app', None) or getattr(_a, 'build', None);"
+        "assert builder is not None, 'app.py must expose build() or build_app()';"
+        "blocks = builder();"
+        "assert blocks is not None, 'builder returned None';"
         # Validate that the kwargs our app.launch() call uses are ALL in the
         # real Blocks.launch signature. This catches the common 'passed theme
         # to launch() when it belongs on Blocks()' class of bug.

@@ -1,4 +1,4 @@
-.PHONY: install repro ingest extract build embed serve eval demo paper all clean test dashboard stats pipeline spaces upload-dataset
+.PHONY: install repro verify-space deploy-space ingest extract build embed serve eval demo paper all clean test dashboard stats pipeline spaces upload-dataset
 
 install:
 	pip install -e ".[dev]"
@@ -47,6 +47,13 @@ dashboard:
 spaces:
 	python app.py
 
+verify-space:
+	bash scripts/verify_space.sh
+
+# deploy-space is gated on verify-space passing. Skipping verification
+# (e.g. during CI bootstrap) requires `SKIP_VERIFY=1 make deploy-space`.
+deploy-space: $(if $(SKIP_VERIFY),,verify-space)
+	python scripts/deploy_hf_space.py
 
 upload-dataset:
 	python scripts/upload_dataset.py

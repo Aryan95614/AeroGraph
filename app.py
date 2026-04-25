@@ -516,8 +516,10 @@ Repo: {REPO_URL}
 
 if __name__ == "__main__":
     app = build_app()
-    app.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=False,
-    )
+    # On HuggingFace Spaces, gradio reads SPACE_ID and configures itself.
+    # For local runs, use the standard HF-parity defaults.
+    import os as _os
+    if _os.getenv("SPACE_ID"):
+        app.launch()  # HF Spaces handles networking
+    else:
+        app.launch(server_name="0.0.0.0", server_port=7860, share=False)

@@ -56,8 +56,15 @@ def main():
     # (PEP 594 removed audioop from cpython 3.13).
     # huggingface_hub<0.28 is required because gradio 4.44 imports HfFolder,
     # which was removed from huggingface_hub in 0.28. Do NOT drop the upper bound.
+    # Version pins (all three are load-bearing for HF Spaces):
+    #   gradio<5                    stay on the 4.x line we've tested against
+    #   huggingface_hub<0.28        gradio 4.44 imports HfFolder (removed in 0.28)
+    #   jinja2<3.1.5                gradio's template cache hits
+    #                                TypeError: unhashable type: 'dict' on 3.1.5+
+    #   audioop-lts                 fallback if HF defaults to Python 3.13
     requirements = """gradio>=4.44.0,<5
 huggingface_hub>=0.20,<0.28
+jinja2>=3.1.2,<3.1.5
 audioop-lts>=0.2.1; python_version>='3.13'
 anthropic>=0.39.0
 chromadb>=0.4.22

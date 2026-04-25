@@ -32,17 +32,31 @@ log() { echo "[$(STAMP)] autoheal: $*"; }
 
 fetch_status() {
     # Returns one of: RUNNING | BUILDING | RUNTIME_ERROR | UNKNOWN
-    local body
-    body=$(curl -sL "$SPACE_URL" 2>/dev/null || echo "")
-    if echo "$body" | grep -q "Runtime error"; then
+    # A false-positive RUNNING will cost a real iteration, so require
+    # direct-endpoint evidence. The iframe URL appears in page metadata
+    # regardless of status — do NOT use it alone as a success signal.
+    local page_body iframe_body iframe_http
+    page_body=$(curl -sL "$SPACE_URL" 2>/dev/null || echo "")
+    if echo "$page_body" | grep -qE "Runtime error|Exit code:"; then
         echo "RUNTIME_ERROR"
-    elif echo "$body" | grep -qE "Running on|aryan95614-aerograph\.hf\.space"; then
-        echo "RUNNING"
-    elif echo "$body" | grep -qE "APP_STARTING|Building|Fetching metadata|Installing"; then
-        echo "BUILDING"
-    else
-        echo "UNKNOWN"
+        return
     fi
+    # Direct iframe endpoint:
+    #   HTTP 200 + gradio HTML markers => RUNNING
+    #   HTTP 503 / empty               => still building or crashed
+    iframe_http=$(curl -sL -o /tmp/autoheal_iframe.html -w "%{http_code}" \
+                    "https://aryan95614-aerograph.hf.space" 2>/dev/null || echo "000")
+    iframe_body=$(cat /tmp/autoheal_iframe.html 2>/dev/null || echo "")
+    if [ "$iframe_http" = "200" ] && \
+       echo "$iframe_body" | grep -qE "gradio-app|__GRADIO_CONFIG__|/assets/index-"; then
+        echo "RUNNING"
+        return
+    fi
+    if echo "$page_body" | grep -qE "APP_STARTING|Building|Fetching metadata|Installing"; then
+        echo "BUILDING"
+        return
+    fi
+    echo "UNKNOWN"
 }
 
 fetch_traceback() {

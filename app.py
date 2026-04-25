@@ -516,10 +516,11 @@ Repo: {REPO_URL}
 
 if __name__ == "__main__":
     app = build_app()
-    # On HuggingFace Spaces, gradio reads SPACE_ID and configures itself.
-    # For local runs, use the standard HF-parity defaults.
-    import os as _os
-    if _os.getenv("SPACE_ID"):
-        app.launch()  # HF Spaces handles networking
-    else:
-        app.launch(server_name="0.0.0.0", server_port=7860, share=False)
+    # HF Spaces expects the app to bind 0.0.0.0 on the port HF supplies via
+    # the GRADIO_SERVER_PORT env var. Gradio reads that automatically when
+    # server_port is not passed.
+    launch_kwargs = {"server_name": "0.0.0.0"}
+    if not os.getenv("SPACE_ID"):
+        # Local dev: fix the port and disable share. On HF, let Gradio infer.
+        launch_kwargs.update(server_port=7860, share=False)
+    app.launch(**launch_kwargs)

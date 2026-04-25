@@ -51,8 +51,11 @@ def main():
     # app.py
     shutil.copy("app.py", LOCAL_STAGE / "app.py")
 
-    # requirements.txt — minimal set the Space needs
-    requirements = """gradio>=4.0.0
+    # requirements.txt — minimal set the Space needs.
+    # audioop-lts backports the stdlib module pydub needs on Python 3.13
+    # (PEP 594 removed audioop from cpython 3.13).
+    requirements = """gradio>=4.44.0,<5
+audioop-lts>=0.2.1; python_version>='3.13'
 anthropic>=0.39.0
 chromadb>=0.4.22
 networkx>=3.2
@@ -71,6 +74,7 @@ colorTo: red
 sdk: gradio
 sdk_version: 4.44.0
 app_file: app.py
+python_version: "3.12"
 pinned: false
 license: mit
 short_description: Graph-RAG over NASA ASRS aviation safety reports

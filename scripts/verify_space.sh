@@ -98,7 +98,8 @@ pip install --quiet -e . >/tmp/verify_space_editable.log 2>&1 || {
     fail "editable install failed"
 }
 unset ANTHROPIC_API_KEY
-timeout 90 python scripts/smoke_gradio.py --timeout 60 || {
+# smoke_gradio.py has its own timeout logic; don't require GNU coreutils.
+python scripts/smoke_gradio.py --timeout 60 || {
     deactivate || true
     fail "gradio smoke test failed"
 }

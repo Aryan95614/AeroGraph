@@ -54,7 +54,10 @@ def main():
     # requirements.txt — minimal set the Space needs.
     # audioop-lts backports the stdlib module pydub needs on Python 3.13
     # (PEP 594 removed audioop from cpython 3.13).
+    # huggingface_hub<0.28 is required because gradio 4.44 imports HfFolder,
+    # which was removed from huggingface_hub in 0.28. Do NOT drop the upper bound.
     requirements = """gradio>=4.44.0,<5
+huggingface_hub>=0.20,<0.28
 audioop-lts>=0.2.1; python_version>='3.13'
 anthropic>=0.39.0
 chromadb>=0.4.22

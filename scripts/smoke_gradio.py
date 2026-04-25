@@ -29,13 +29,26 @@ def main():
     env = dict(os.environ)
     env.pop("ANTHROPIC_API_KEY", None)
 
+    # Exercise both build_app() AND the launch-kwargs code path, because
+    # Gradio raises TypeError on invalid Blocks.launch kwargs at call time
+    # (not at Blocks construction). Monkey-patch launch to validate kwargs
+    # against the real method signature without actually binding a port.
     probe = (
-        "import sys; sys.path.insert(0, '.');"
+        "import sys, inspect; sys.path.insert(0, '.');"
+        "import gradio as gr;"
         "from app import build_app, CACHED_MODE;"
         "assert CACHED_MODE, 'expected CACHED_MODE=True with no API key';"
         "blocks = build_app();"
         "assert blocks is not None, 'build_app returned None';"
-        "print('OK: build_app constructed Blocks cleanly')"
+        # Validate that the kwargs our app.launch() call uses are ALL in the
+        # real Blocks.launch signature. This catches the common 'passed theme
+        # to launch() when it belongs on Blocks()' class of bug.
+        "sig = inspect.signature(gr.Blocks.launch);"
+        "valid = set(sig.parameters.keys());"
+        "used = {'server_name','server_port','share'};"
+        "bad = used - valid;"
+        "assert not bad, f'app.launch() uses kwargs not accepted by gradio {gr.__version__}: {bad}';"
+        "print(f'OK: build_app + launch kwargs valid for gradio {gr.__version__}')"
     )
     print(f"smoke: running build_app() probe with CACHED_MODE (timeout {args.timeout}s)")
     try:

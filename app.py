@@ -380,7 +380,10 @@ def build_app() -> gr.Blocks:
         "**Live mode** · Queries go through the full hybrid retrieval pipeline."
     )
 
-    with gr.Blocks(title="AeroGraph — Hybrid Retrieval for Aviation Safety") as app:
+    with gr.Blocks(
+        title="AeroGraph — Hybrid Retrieval for Aviation Safety",
+        theme=gr.themes.Soft(primary_hue="blue", secondary_hue="slate"),
+    ) as app:
         gr.Markdown(
             f"""# AeroGraph
 ### Hybrid knowledge-graph + vector retrieval over 2,000 NASA ASRS incident reports
@@ -517,5 +520,4 @@ if __name__ == "__main__":
         server_name="0.0.0.0",
         server_port=7860,
         share=False,
-        theme=gr.themes.Soft(primary_hue="blue", secondary_hue="slate"),
     )

@@ -8,8 +8,7 @@ generation (RAG) systems consistently underperform. We present AeroGraph, a
 GraphRAG system that constructs a domain-specific knowledge graph from 2,000
 real NASA Aviation Safety Reporting System (ASRS) incident reports using
 LLM-based entity and relation extraction guided by an aviation safety ontology
-(10 entity types, 8 edge types). The raw extracted graph contains 29,244
-entities and 43,505 relations; after taxonomy-based entity resolution and
+(10 entity types, 8 edge types). After taxonomy-based entity resolution and
 cleanup the evaluation graph contains 23,948 canonicalized entities and 48,479
 relations. AeroGraph combines vector similarity search over report chunks
 with graph-structural retrieval via 2-hop entity neighborhood expansion,
@@ -39,7 +38,7 @@ the 1.8M+ reports in the ASRS database — particularly rare anomaly types and
 long-tail contributing factor combinations.
 
 **LLM-as-judge variability.** We report scores from two independent judges:
-a local Ollama model (`qwen2.5:7b`) and Claude Sonnet. Claude is consistently
+a local Ollama model (`llama3.1:8b`) and Claude Sonnet. Claude is consistently
 stricter, scoring 0.2–0.4 lower on faithfulness across all systems. Rankings
 between systems are largely preserved across judges, but absolute numbers
 should be interpreted as relative rather than absolute quality measures. We

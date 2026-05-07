@@ -166,7 +166,7 @@ Rank Fusion \citep{cormack2009rrf} pipeline.
 ASRS has been studied primarily through text classification and topic
 modeling \citep{kuhn2018asrs,rose2015asrs}. Formal taxonomies such as
 HFACS \citep{shappell2001hfacs} and ICAO occurrence categories
-\citep{icao2018doc9859} provide canonical vocabulary for human and
+\citep{icao2016doc9859} provide canonical vocabulary for human and
 technical contributing factors. We use HFACS Level-2 categories and
 ICAO aircraft and airport codes as canonical lookup targets during
 entity resolution, a practice standard in aviation safety analytics
@@ -542,7 +542,14 @@ $[+0.020, +0.180]$ on primary (does not cross zero; Wilcoxon
 $p = 0.047$) but $[-0.004, +0.098]$ on held-out
 (crosses zero; Wilcoxon $p = 0.142$). Kendall's $\tau$
 between the two corpora's P@10-based system rankings is
-$\tau = -0.07$ ($p = 1.00$): rankings are uncorrelated. The
+$\tau = -0.138$ ($p = 0.702$): system rankings show no
+statistically significant correlation across corpora. (Earlier
+internal numbers gave $\tau \approx -0.07$ under alternate
+rank-aggregation choices that we could not reproduce; the value
+above is computed by \texttt{demo/eval/swap\_corpus.py} from the
+published \texttt{paper/results/eval\_results\_*.json} files using
+\texttt{scipy.stats.kendalltau} with average-rank tie handling, and
+is the canonical scalar for this claim.) The
 pattern literally inverts: Graph-only moves from worst on primary
 (P@10 $= 0.058$) to best on held-out
 (P@10 $= 0.138$), while Hybrid moves from best
@@ -570,7 +577,7 @@ on the first corpus and look relatively stronger on held-out.
 Stratifying by query type, single-hop and comparative deltas remain
 directionally positive on held-out, but the multi-hop
 $\Delta$P@10(Hybrid $-$ Vector) \emph{sign-flips} from
-$++0.090$ on primary to $-0.020$ on held-out. Multi-hop queries
+$+0.090$ on primary to $-0.020$ on held-out. Multi-hop queries
 depend most on rich, frequency-discriminating entities
 (\emph{runway 28L incursion during crosswind} rather than
 \emph{runway incursion}); on the held-out graph, entity extraction
@@ -628,8 +635,8 @@ Hybrid       & 0.210 & 0.685 & 0.047$^{*}$ & 0.070 & 0.722 & 0.142 \\
 \centering
 \includegraphics[width=0.85\linewidth]{figures/primary_vs_heldout_p10.png}
 \caption{P@10 by system on the primary and held-out corpora. Same
-$50$ queries; system rank order does not correlate across corpora
-(Kendall $\tau = -0.07$).}
+$50$ queries; system rank order is not significantly correlated
+across corpora (Kendall $\tau = -0.138$, $p = 0.702$).}
 \label{fig:crosscorpus}
 \end{figure}
 

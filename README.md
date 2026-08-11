@@ -1,3 +1,5 @@
+
+
 # AeroGraph
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
@@ -111,7 +113,7 @@ cached mode with 10 showcase queries pre-answered.
 **Live mode** (requires `ANTHROPIC_API_KEY`):
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-python app.py
+python app_full.py
 ```
 
 **Reproduce the benchmark from scratch** (requires API credits, ~2h):
